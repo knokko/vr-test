@@ -52,6 +52,9 @@ dependencies {
     compile "org.lwjgl:lwjgl:$lwjglVersion:natives-windows"
     compile "org.lwjgl:lwjgl-openvr:$lwjglVersion:natives-windows"
 
+    compile "org.lwjgl:lwjgl:$lwjglVersion:natives-windows-x86"
+    compile "org.lwjgl:lwjgl-openvr:$lwjglVersion:natives-windows-x86"
+
     compile "org.lwjgl:lwjgl:$lwjglVersion:natives-linux"
     compile "org.lwjgl:lwjgl-openvr:$lwjglVersion:natives-linux"
 
