@@ -1,0 +1,60 @@
+plugins {
+    id 'java'
+    id 'org.jetbrains.kotlin.jvm' version '1.3.50'
+    id 'com.github.johnrengelman.shadow' version '4.0.4'
+}
+
+compileKotlin {
+    kotlinOptions.jvmTarget = "1.8"
+}
+compileTestKotlin {
+    kotlinOptions.jvmTarget = "1.8"
+}
+
+allprojects {
+    apply plugin: 'java'
+    apply plugin: 'org.jetbrains.kotlin.jvm'
+    
+    group = 'nl.knokko.test.vr'
+    version = '1.0'
+
+    repositories {
+        mavenCentral()
+    }
+
+    compileKotlin {
+        kotlinOptions.jvmTarget = "1.8"
+    }
+    compileTestKotlin {
+        kotlinOptions.jvmTarget = "1.8"
+    }
+
+    sourceCompatibility = 1.8
+    project.ext.lwjglVersion = "3.2.3"
+
+    dependencies {
+        implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
+        testImplementation 'io.kotlintest:kotlintest-runner-junit5:3.3.2'
+        testCompile group: 'junit', name: 'junit', version: '4.12'
+    }
+}
+
+shadowJar {
+    manifest {
+        attributes ('Main-Class': 'stuff.InfoPrinterKt')
+    }
+}
+
+dependencies {
+    compile "org.lwjgl:lwjgl:$lwjglVersion"
+    compile "org.lwjgl:lwjgl-openvr:$lwjglVersion"
+
+    compile "org.lwjgl:lwjgl:$lwjglVersion:natives-windows"
+    compile "org.lwjgl:lwjgl-openvr:$lwjglVersion:natives-windows"
+
+    compile "org.lwjgl:lwjgl:$lwjglVersion:natives-linux"
+    compile "org.lwjgl:lwjgl-openvr:$lwjglVersion:natives-linux"
+
+    compile "org.lwjgl:lwjgl:$lwjglVersion:natives-macos"
+    compile "org.lwjgl:lwjgl-openvr:$lwjglVersion:natives-macos"
+}
