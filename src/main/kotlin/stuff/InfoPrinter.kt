@@ -1,5 +1,6 @@
 package stuff
 
+import org.lwjgl.openvr.OpenVR
 import org.lwjgl.openvr.VR.*
 import org.lwjgl.openvr.VRCompositor.VRCompositor_GetVulkanInstanceExtensionsRequired
 import org.lwjgl.openvr.VRSystem.VRSystem_GetTrackedDeviceClass
@@ -18,6 +19,8 @@ fun main() {
         println("Error code for init is ${pError[0]}")
         println("Token is $token")
         if (pError[0] == 0) {
+
+            OpenVR.create(token)
 
             println("Device classes:")
             for (deviceIndex in 0 until k_unMaxTrackedDeviceCount)
