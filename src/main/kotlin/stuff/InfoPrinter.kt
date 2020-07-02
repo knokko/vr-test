@@ -1,23 +1,33 @@
 package stuff
 
+import org.lwjgl.glfw.GLFW.*
+import org.lwjgl.opengl.GL
 import org.lwjgl.opengl.GL11
-import org.lwjgl.opengl.GL11.*
 import org.lwjgl.opengl.GL30.*
-import org.lwjgl.openvr.OpenVR
-import org.lwjgl.openvr.Texture
+import org.lwjgl.openvr.*
 import org.lwjgl.openvr.VR.*
-import org.lwjgl.openvr.VRCompositor
 import org.lwjgl.openvr.VRSystem.VRSystem_GetRecommendedRenderTargetSize
 import org.lwjgl.openvr.VRSystem.VRSystem_GetTrackedDeviceClass
-import org.lwjgl.openvr.VRTextureWithDepth
 import org.lwjgl.system.MemoryStack.stackPush
 import org.lwjgl.system.MemoryUtil
+import org.lwjgl.system.MemoryUtil.NULL
 import java.awt.Color
 
 fun main() {
     println("Runtime installed? ${VR_IsRuntimeInstalled()}")
     println("Runtime path = ${VR_RuntimePath()}")
     println("Has head-mounted display? ${VR_IsHmdPresent()}")
+
+    // Apparently, creating a cross-platform OpenGL context without window is very hard
+    // So the work-around is to just create an invisible window
+    glfwInit()
+    glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE)
+    glfwWindowHint(GLFW_COCOA_MENUBAR, GLFW_FALSE)
+
+    val windowHandle = glfwCreateWindow(1, 1, "Should be invisible", NULL, NULL)
+    glfwMakeContextCurrent(windowHandle)
+    GL.createCapabilities()
+    glClearColor(1f, 1f, 1f, 1f)
 
     stackPush().use{stack ->
 
@@ -63,9 +73,22 @@ fun main() {
             val leftTexture = Texture.callocStack(stack)
             leftTexture.eType(ETextureType_TextureType_OpenGL)
             leftTexture.eColorSpace(EColorSpace_ColorSpace_Gamma)
-            leftTexture.handle(leftFramebuffer.textureHandle.toLong()) // TODO Dangerous trick
+            // The next line seems weird and dirty, but appears the right way to do this
+            leftTexture.handle(leftFramebuffer.textureHandle.toLong())
 
-            VRCompositor.VRCompositor_Submit(EVREye_Eye_Left, leftTexture, null, EVRSubmitFlags_Submit_TextureWithDepth);
+            // Stop after 20 seconds
+            val endTime = System.currentTimeMillis() + 20_000
+
+            val poses = TrackedDevicePose.mallocStack(k_unMaxTrackedDeviceCount, stack)
+            println("Start while loop")
+            while (System.currentTimeMillis() < endTime) {
+                VRCompositor.VRCompositor_WaitGetPoses(poses, null)
+                VRCompositor.VRCompositor_Submit(EVREye_Eye_Left, leftTexture, null, EVRSubmitFlags_Submit_TextureWithDepth)
+                VRCompositor.VRCompositor_PostPresentHandoff()
+                print("s")
+            }
+
+            println("End while loop")
 
             leftTexture.free()
 
@@ -79,6 +102,10 @@ fun main() {
         VR_ShutdownInternal()
         println("Shutdown successfully")
     }
+
+    GL.destroy()
+    glfwDestroyWindow(windowHandle)
+    glfwTerminate()
 }
 
 class Framebuffer(val handle: Int, val textureHandle: Int)
@@ -95,7 +122,7 @@ fun createSimpleFramebuffer(width: Int, height: Int) : Framebuffer {
 
     val texture = glGenTextures()
     glBindTexture(GL_TEXTURE_2D, texture)
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, MemoryUtil.NULL)
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0)

@@ -49,20 +49,25 @@ dependencies {
     implementation "org.lwjgl:lwjgl:$lwjglVersion"
     implementation "org.lwjgl:lwjgl-opengl:$lwjglVersion"
     implementation "org.lwjgl:lwjgl-openvr:$lwjglVersion"
+    implementation "org.lwjgl:lwjgl-glfw:$lwjglVersion"
 
     runtimeOnly "org.lwjgl:lwjgl:$lwjglVersion:natives-windows"
     runtimeOnly "org.lwjgl:lwjgl-opengl:$lwjglVersion:natives-windows"
     runtimeOnly "org.lwjgl:lwjgl-openvr:$lwjglVersion:natives-windows"
+    runtimeOnly "org.lwjgl:lwjgl-glfw:$lwjglVersion:natives-windows"
 
     runtimeOnly "org.lwjgl:lwjgl:$lwjglVersion:natives-windows-x86"
     runtimeOnly "org.lwjgl:lwjgl-opengl:$lwjglVersion:natives-windows-x86"
     runtimeOnly "org.lwjgl:lwjgl-openvr:$lwjglVersion:natives-windows-x86"
+    runtimeOnly "org.lwjgl:lwjgl-glfw:$lwjglVersion:natives-windows-x86"
 
     runtimeOnly "org.lwjgl:lwjgl:$lwjglVersion:natives-linux"
     runtimeOnly "org.lwjgl:lwjgl-opengl:$lwjglVersion:natives-linux"
     runtimeOnly "org.lwjgl:lwjgl-openvr:$lwjglVersion:natives-linux"
+    runtimeOnly "org.lwjgl:lwjgl-glfw:$lwjglVersion:natives-linux"
 
     runtimeOnly "org.lwjgl:lwjgl:$lwjglVersion:natives-macos"
     runtimeOnly "org.lwjgl:lwjgl-opengl:$lwjglVersion:natives-macos"
     runtimeOnly "org.lwjgl:lwjgl-openvr:$lwjglVersion:natives-macos"
+    runtimeOnly "org.lwjgl:lwjgl-glfw:$lwjglVersion:natives-macos"
 }
