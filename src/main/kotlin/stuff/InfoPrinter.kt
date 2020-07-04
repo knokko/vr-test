@@ -13,8 +13,18 @@ import org.lwjgl.system.MemoryUtil
 import org.lwjgl.system.MemoryUtil.NULL
 import org.lwjgl.system.MemoryUtil.memUTF8
 import java.awt.Color
+import java.io.File
+import java.io.PrintStream
+import java.io.PrintWriter
+import java.nio.file.Files
+import java.util.*
+import javax.swing.filechooser.FileSystemView
 
 fun main() {
+
+    val home = FileSystemView.getFileSystemView().homeDirectory
+
+    System.setOut(PrintStream(File("$home/vrOut.txt")))
     println("Runtime installed? ${VR_IsRuntimeInstalled()}")
     println("Runtime path = ${VR_RuntimePath()}")
     println("Has head-mounted display? ${VR_IsHmdPresent()}")
@@ -86,15 +96,21 @@ fun main() {
             leftTexture.handle(leftFramebuffer.textureHandle.toLong())
 
             // Stop after 20 seconds
-            val endTime = System.currentTimeMillis() + 2_000
+            val endTime = System.currentTimeMillis() + 20_000
 
             val poses = TrackedDevicePose.mallocStack(k_unMaxTrackedDeviceCount, stack)
             poses.eTrackingResult(123)
             println("Start while loop")
             while (System.currentTimeMillis() < endTime) {
-                println("Poses: ${VRCompositor_WaitGetPoses(poses, null)}")
-                println("Submit left: ${VRCompositor_Submit(EVREye_Eye_Left, leftTexture, null, EVRSubmitFlags_Submit_TextureWithDepth)}")
+                //println("Poses: ${VRCompositor_WaitGetPoses(poses, null)}")
+                //println("Submit left: ${VRCompositor_Submit(EVREye_Eye_Left, leftTexture, null, EVRSubmitFlags_Submit_TextureWithDepth)}")
                 // TODO Use a right texture as well
+                VRCompositor_WaitGetPoses(poses, null)
+
+                glClearColor(0f, 0f, 1f, 1f)
+                glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT)
+
+                VRCompositor_Submit(EVREye_Eye_Left, leftTexture, null, EVRSubmitFlags_Submit_TextureWithDepth)
                 VRCompositor_Submit(EVREye_Eye_Right, leftTexture, null, EVRSubmitFlags_Submit_TextureWithDepth)
                 VRCompositor_PostPresentHandoff()
             }
@@ -138,7 +154,7 @@ fun createSimpleFramebuffer(width: Int, height: Int) : Framebuffer {
 
     val texture = glGenTextures()
     glBindTexture(GL_TEXTURE_2D, texture)
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL)
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0)
