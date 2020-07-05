@@ -2,7 +2,6 @@ package stuff
 
 import org.lwjgl.glfw.GLFW.*
 import org.lwjgl.opengl.GL
-import org.lwjgl.opengl.GL11
 import org.lwjgl.opengl.GL30.*
 import org.lwjgl.openvr.*
 import org.lwjgl.openvr.VR.*
@@ -15,10 +14,8 @@ import org.lwjgl.system.MemoryUtil.memUTF8
 import java.awt.Color
 import java.io.File
 import java.io.PrintStream
-import java.io.PrintWriter
-import java.nio.file.Files
-import java.util.*
 import javax.swing.filechooser.FileSystemView
+import kotlin.math.sin
 
 fun main() {
 
@@ -107,7 +104,7 @@ fun main() {
                 // TODO Use a right texture as well
                 VRCompositor_WaitGetPoses(poses, null)
 
-                glClearColor(0f, 0f, 1f, 1f)
+                glClearColor(sin((System.currentTimeMillis() % 100_000) / 1000f), 0f, 1f, 1f)
                 glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT)
 
                 VRCompositor_Submit(EVREye_Eye_Left, leftTexture, null, EVRSubmitFlags_Submit_TextureWithDepth)
@@ -123,7 +120,7 @@ fun main() {
             leftTexture.free()
 
             glDeleteFramebuffers(leftFramebuffer.handle)
-            GL11.glDeleteTextures(leftFramebuffer.textureHandle)
+            glDeleteTextures(leftFramebuffer.textureHandle)
         } else {
 
             println("Error meaning is ${VR_GetVRInitErrorAsSymbol(pError[0])}")
