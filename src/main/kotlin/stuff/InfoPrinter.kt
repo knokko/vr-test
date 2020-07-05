@@ -9,8 +9,7 @@ import org.lwjgl.openvr.VRCompositor.*
 import org.lwjgl.openvr.VRSystem.*
 import org.lwjgl.system.MemoryStack.stackPush
 import org.lwjgl.system.MemoryUtil
-import org.lwjgl.system.MemoryUtil.NULL
-import org.lwjgl.system.MemoryUtil.memUTF8
+import org.lwjgl.system.MemoryUtil.*
 import java.awt.Color
 import java.io.File
 import java.io.PrintStream
@@ -21,7 +20,7 @@ fun main() {
 
     val home = FileSystemView.getFileSystemView().homeDirectory
 
-    System.setOut(PrintStream(File("$home/vrOut.txt")))
+    //System.setOut(PrintStream(File("$home/vrOut.txt")))
     println("Runtime installed? ${VR_IsRuntimeInstalled()}")
     println("Runtime path = ${VR_RuntimePath()}")
     println("Has head-mounted display? ${VR_IsHmdPresent()}")
@@ -43,14 +42,17 @@ fun main() {
     stackPush().use{stack ->
 
         val pError = stack.mallocInt(1)
-        val token = VR_InitInternal(pError, EVRApplicationType_VRApplication_Scene)
+        //val token = VR_InitInternal(pError, EVRApplicationType_VRApplication_Scene)
+        val token = 1
+        pError.put(0, 0)
 
         println("Error code for init is ${pError[0]}")
         println("Token is $token")
         if (pError[0] == 0) {
 
-            OpenVR.create(token)
+            //OpenVR.create(token)
 
+            /*
             println("Device classes:")
             for (deviceIndex in 0 until k_unMaxTrackedDeviceCount) {
                 val deviceClass = VRSystem_GetTrackedDeviceClass(deviceIndex)
@@ -60,12 +62,17 @@ fun main() {
                 }
             }
             println("These were all device classes")
+             */
 
+            /*
             val pWidth = stack.mallocInt(1)
             val pHeight = stack.mallocInt(1)
             VRSystem_GetRecommendedRenderTargetSize(pWidth, pHeight)
             val width = pWidth[0]
             val height = pHeight[0]
+             */
+            val width = 1000
+            val height = 800
 
             println("Recommended render target size is ($width, $height)")
 
@@ -74,53 +81,65 @@ fun main() {
             glClearColor(1f, 1f, 0f, 1f)
             glClear(GL_COLOR_BUFFER_BIT)
 
+            val pixelBuffer = memAlloc(width * height * 3)
+
             run {
-                //glBindFramebuffer(GL_FRAMEBUFFER, leftFramebuffer.handle)
-                val pixelBuffer = MemoryUtil.memAlloc(width * height * 3)
                 glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, pixelBuffer)
                 val firstColor = Color(pixelBuffer[0].toInt() and 0xFF, pixelBuffer[1].toInt() and 0xFF,
                         pixelBuffer[2].toInt() and 0xFF)
-                MemoryUtil.memFree(pixelBuffer)
-                //glBindFramebuffer(GL_FRAMEBUFFER, 0)
-
-                println("The later color is $firstColor")
+                println("The color is $firstColor")
             }
 
+            /*
             val leftTexture = Texture.callocStack(stack)
             leftTexture.eType(ETextureType_TextureType_OpenGL)
             leftTexture.eColorSpace(EColorSpace_ColorSpace_Gamma)
             // The next line seems weird and dirty, but appears the right way to do this
             leftTexture.handle(leftFramebuffer.textureHandle.toLong())
+             */
 
             // Stop after 20 seconds
-            val endTime = System.currentTimeMillis() + 20_000
+            val endTime = System.currentTimeMillis() + 4_000
 
-            val poses = TrackedDevicePose.mallocStack(k_unMaxTrackedDeviceCount, stack)
-            poses.eTrackingResult(123)
+            //val poses = TrackedDevicePose.mallocStack(k_unMaxTrackedDeviceCount, stack)
             println("Start while loop")
             while (System.currentTimeMillis() < endTime) {
                 //println("Poses: ${VRCompositor_WaitGetPoses(poses, null)}")
                 //println("Submit left: ${VRCompositor_Submit(EVREye_Eye_Left, leftTexture, null, EVRSubmitFlags_Submit_TextureWithDepth)}")
                 // TODO Use a right texture as well
-                VRCompositor_WaitGetPoses(poses, null)
+                //VRCompositor_WaitGetPoses(poses, null)
 
-                glClearColor(sin((System.currentTimeMillis() % 100_000) / 1000f), 0f, 1f, 1f)
+                glClearColor(sin((System.currentTimeMillis() % 100_000) / 1000f) * 0.5f + 0.5f, 0f, 1f, 1f)
                 glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT)
 
-                VRCompositor_Submit(EVREye_Eye_Left, leftTexture, null, EVRSubmitFlags_Submit_TextureWithDepth)
-                VRCompositor_Submit(EVREye_Eye_Right, leftTexture, null, EVRSubmitFlags_Submit_TextureWithDepth)
-                VRCompositor_PostPresentHandoff()
+                run {
+                    glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, pixelBuffer)
+                    val firstColor = Color(pixelBuffer[0].toInt() and 0xFF, pixelBuffer[1].toInt() and 0xFF,
+                            pixelBuffer[2].toInt() and 0xFF)
+                    println("The color is $firstColor")
+                }
+
+                //VRCompositor_Submit(EVREye_Eye_Left, leftTexture, null, EVRSubmitFlags_Submit_TextureWithDepth)
+                //VRCompositor_Submit(EVREye_Eye_Right, leftTexture, null, EVRSubmitFlags_Submit_TextureWithDepth)
+                glFlush()
+                //VRCompositor_PostPresentHandoff()
+                Thread.sleep(5)
             }
 
+            /*
             println("Poses info: connected is ${poses.bDeviceIsConnected()} and valid is ${poses.bPoseIsValid()}")
             println("Poses info: tracking result is ${poses.eTrackingResult()} and velocity is ${poses.vAngularVelocity()}")
 
             println("End while loop")
 
             leftTexture.free()
+             */
 
             glDeleteFramebuffers(leftFramebuffer.handle)
             glDeleteTextures(leftFramebuffer.textureHandle)
+
+
+            memFree(pixelBuffer)
         } else {
 
             println("Error meaning is ${VR_GetVRInitErrorAsSymbol(pError[0])}")
