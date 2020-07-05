@@ -104,11 +104,12 @@ fun main() {
                 // TODO Use a right texture as well
                 VRCompositor_WaitGetPoses(poses, null)
 
-                glClearColor(sin((System.currentTimeMillis() % 100_000) / 1000f), 0f, 1f, 1f)
+                glClearColor(sin((System.currentTimeMillis() % 100_000) / 1000f) * 0.5f + 0.5f, 0f, 1f, 1f)
                 glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT)
 
                 VRCompositor_Submit(EVREye_Eye_Left, leftTexture, null, EVRSubmitFlags_Submit_TextureWithDepth)
                 VRCompositor_Submit(EVREye_Eye_Right, leftTexture, null, EVRSubmitFlags_Submit_TextureWithDepth)
+                glFlush()
                 VRCompositor_PostPresentHandoff()
             }
 
