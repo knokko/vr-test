@@ -9,8 +9,7 @@ import org.lwjgl.openvr.VRCompositor.*
 import org.lwjgl.openvr.VRSystem.*
 import org.lwjgl.system.MemoryStack.stackPush
 import org.lwjgl.system.MemoryUtil
-import org.lwjgl.system.MemoryUtil.NULL
-import org.lwjgl.system.MemoryUtil.memUTF8
+import org.lwjgl.system.MemoryUtil.*
 import java.awt.Color
 import java.io.File
 import java.io.PrintStream
@@ -74,16 +73,13 @@ fun main() {
             glClearColor(1f, 1f, 0f, 1f)
             glClear(GL_COLOR_BUFFER_BIT)
 
+            val pixelBuffer = memAlloc(width * height * 3)
+
             run {
-                //glBindFramebuffer(GL_FRAMEBUFFER, leftFramebuffer.handle)
-                val pixelBuffer = MemoryUtil.memAlloc(width * height * 3)
                 glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, pixelBuffer)
                 val firstColor = Color(pixelBuffer[0].toInt() and 0xFF, pixelBuffer[1].toInt() and 0xFF,
                         pixelBuffer[2].toInt() and 0xFF)
-                MemoryUtil.memFree(pixelBuffer)
-                //glBindFramebuffer(GL_FRAMEBUFFER, 0)
-
-                println("The later color is $firstColor")
+                println("The color is $firstColor")
             }
 
             val leftTexture = Texture.callocStack(stack)
@@ -107,10 +103,19 @@ fun main() {
                 glClearColor(sin((System.currentTimeMillis() % 100_000) / 1000f) * 0.5f + 0.5f, 0f, 1f, 1f)
                 glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT)
 
+                // TODO Remove after debugging! This kills performance!
+                run {
+                    glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, pixelBuffer)
+                    val firstColor = Color(pixelBuffer[0].toInt() and 0xFF, pixelBuffer[1].toInt() and 0xFF,
+                            pixelBuffer[2].toInt() and 0xFF)
+                    println("The color is $firstColor")
+                }
+
                 VRCompositor_Submit(EVREye_Eye_Left, leftTexture, null, EVRSubmitFlags_Submit_TextureWithDepth)
                 VRCompositor_Submit(EVREye_Eye_Right, leftTexture, null, EVRSubmitFlags_Submit_TextureWithDepth)
                 glFlush()
-                VRCompositor_PostPresentHandoff()
+                glFinish()
+                //VRCompositor_PostPresentHandoff()
             }
 
             println("Poses info: connected is ${poses.bDeviceIsConnected()} and valid is ${poses.bPoseIsValid()}")
@@ -119,6 +124,8 @@ fun main() {
             println("End while loop")
 
             leftTexture.free()
+
+            memFree(pixelBuffer)
 
             glDeleteFramebuffers(leftFramebuffer.handle)
             glDeleteTextures(leftFramebuffer.textureHandle)
