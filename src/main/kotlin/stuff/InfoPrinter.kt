@@ -70,17 +70,23 @@ fun main() {
 
             val leftFramebuffer = createSimpleFramebuffer(width, height)
             glBindFramebuffer(GL_FRAMEBUFFER, leftFramebuffer.handle)
-            glClearColor(1f, 1f, 0f, 1f)
+
+            // The initial color will be red
+            glClearColor(1f, 0f, 0f, 1f)
             glClear(GL_COLOR_BUFFER_BIT)
 
             val pixelBuffer = memAlloc(width * height * 3)
 
-            run {
+            // This prints the color of the corner pixel, nice for debugging
+            fun printPixelColor() {
                 glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, pixelBuffer)
                 val firstColor = Color(pixelBuffer[0].toInt() and 0xFF, pixelBuffer[1].toInt() and 0xFF,
                         pixelBuffer[2].toInt() and 0xFF)
                 println("The color is $firstColor")
             }
+
+            println("Should be red now")
+            printPixelColor()
 
             val leftTexture = Texture.callocStack(stack)
             leftTexture.eType(ETextureType_TextureType_OpenGL)
@@ -88,41 +94,32 @@ fun main() {
             // The next line seems weird and dirty, but appears the right way to do this
             leftTexture.handle(leftFramebuffer.textureHandle.toLong())
 
-            // Stop after 20 seconds
-            val endTime = System.currentTimeMillis() + 20_000
-
             val poses = TrackedDevicePose.mallocStack(k_unMaxTrackedDeviceCount, stack)
-            poses.eTrackingResult(123)
-            println("Start while loop")
-            while (System.currentTimeMillis() < endTime) {
-                //println("Poses: ${VRCompositor_WaitGetPoses(poses, null)}")
-                //println("Submit left: ${VRCompositor_Submit(EVREye_Eye_Left, leftTexture, null, EVRSubmitFlags_Submit_TextureWithDepth)}")
-                // TODO Use a right texture as well
-                VRCompositor_WaitGetPoses(poses, null)
 
-                glClearColor(sin((System.currentTimeMillis() % 100_000) / 1000f) * 0.5f + 0.5f, 0f, 1f, 1f)
-                glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT)
+            // Submit green texture to headset
+            val posesResultGreen = VRCompositor_WaitGetPoses(poses, null)
+            glClearColor(0f, 1f, 0f, 1f)
+            glClear(GL_COLOR_BUFFER_BIT)
+            println("Should be green now")
+            printPixelColor()
+            val leftResultGreen = VRCompositor_Submit(EVREye_Eye_Left, leftTexture, null, EVRSubmitFlags_Submit_TextureWithDepth)
+            val rightResultGreen = VRCompositor_Submit(EVREye_Eye_Right, leftTexture, null, EVRSubmitFlags_Submit_TextureWithDepth)
+            glFlush()
 
-                // TODO Remove after debugging! This kills performance!
-                run {
-                    glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, pixelBuffer)
-                    val firstColor = Color(pixelBuffer[0].toInt() and 0xFF, pixelBuffer[1].toInt() and 0xFF,
-                            pixelBuffer[2].toInt() and 0xFF)
-                    println("The color is $firstColor")
-                }
+            // Submit blue texture to headset
+            val posesResultRed = VRCompositor_WaitGetPoses(poses, null)
+            glClearColor(0f, 0f, 1f, 1f)
+            glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT)
+            println("Should be blue now")
+            printPixelColor()
+            val leftResultRed = VRCompositor_Submit(EVREye_Eye_Left, leftTexture, null, EVRSubmitFlags_Submit_TextureWithDepth)
+            val rightResultRed = VRCompositor_Submit(EVREye_Eye_Right, leftTexture, null, EVRSubmitFlags_Submit_TextureWithDepth)
+            glFlush()
 
-                VRCompositor_Submit(EVREye_Eye_Left, leftTexture, null, EVRSubmitFlags_Submit_TextureWithDepth)
-                VRCompositor_Submit(EVREye_Eye_Right, leftTexture, null, EVRSubmitFlags_Submit_TextureWithDepth)
-                glFlush()
-                glFinish()
-                //VRCompositor_PostPresentHandoff()
-            }
+            println("Green results are ($posesResultGreen, $leftResultGreen, $rightResultGreen)")
+            println("Red results are ($posesResultRed, $leftResultRed, $rightResultRed)")
 
-            println("Poses info: connected is ${poses.bDeviceIsConnected()} and valid is ${poses.bPoseIsValid()}")
-            println("Poses info: tracking result is ${poses.eTrackingResult()} and velocity is ${poses.vAngularVelocity()}")
-
-            println("End while loop")
-
+            // Cleaning up OpenGL resources
             leftTexture.free()
 
             memFree(pixelBuffer)
