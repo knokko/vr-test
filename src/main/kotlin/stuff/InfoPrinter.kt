@@ -2,6 +2,7 @@ package stuff
 
 import org.lwjgl.glfw.GLFW.*
 import org.lwjgl.opengl.GL
+import org.lwjgl.opengl.GL11
 import org.lwjgl.opengl.GL30.*
 import org.lwjgl.openvr.*
 import org.lwjgl.openvr.VR.*
@@ -69,18 +70,7 @@ fun main() {
             println("Recommended render target size is ($width, $height)")
 
             val leftFramebuffer = createSimpleFramebuffer(width, height)
-            glBindFramebuffer(GL_FRAMEBUFFER, leftFramebuffer.handle)
-            glClearColor(1f, 1f, 0f, 1f)
-            glClear(GL_COLOR_BUFFER_BIT)
-
-            val pixelBuffer = memAlloc(width * height * 3)
-
-            run {
-                glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, pixelBuffer)
-                val firstColor = Color(pixelBuffer[0].toInt() and 0xFF, pixelBuffer[1].toInt() and 0xFF,
-                        pixelBuffer[2].toInt() and 0xFF)
-                println("The color is $firstColor")
-            }
+            val rightFramebuffer = createSimpleFramebuffer(width, height)
 
             val leftTexture = Texture.callocStack(stack)
             leftTexture.eType(ETextureType_TextureType_OpenGL)
@@ -88,54 +78,59 @@ fun main() {
             // The next line seems weird and dirty, but appears the right way to do this
             leftTexture.handle(leftFramebuffer.textureHandle.toLong())
 
+            val rightTexture = Texture.callocStack(stack)
+            rightTexture.eType(ETextureType_TextureType_OpenGL)
+            rightTexture.eColorSpace(EColorSpace_ColorSpace_Gamma)
+            rightTexture.handle(rightFramebuffer.textureHandle.toLong())
+
             // Stop after 20 seconds
             val endTime = System.currentTimeMillis() + 20_000
 
             val poses = TrackedDevicePose.mallocStack(k_unMaxTrackedDeviceCount, stack)
-            poses.eTrackingResult(123)
             println("Start while loop")
             while (System.currentTimeMillis() < endTime) {
-                // TODO Use a right texture as well
-                VRCompositor_WaitGetPoses(poses, null)
 
-                glClearColor(sin((System.currentTimeMillis() % 100_000) / 1000f) * 0.5f + 0.5f, 0f, 1f, 1f)
-                glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT)
+                VRCompositor_WaitGetPoses(poses, null)
+                val timeValue = sin((System.currentTimeMillis() % 100_000) / 1000f) * 0.5f + 0.5f
+
+                glBindFramebuffer(GL_FRAMEBUFFER, leftFramebuffer.handle)
+                glClearColor(timeValue, 0f, 1f, 1f)
+                glClear(GL_COLOR_BUFFER_BIT)
+
+                glBindFramebuffer(GL_FRAMEBUFFER, rightFramebuffer.handle)
+                glClearColor(0f, timeValue, 0f, 1f)
+                glClear(GL_COLOR_BUFFER_BIT)
 
                 VRCompositor_Submit(EVREye_Eye_Left, leftTexture, null, EVRSubmitFlags_Submit_TextureWithDepth)
-                VRCompositor_Submit(EVREye_Eye_Right, leftTexture, null, EVRSubmitFlags_Submit_TextureWithDepth)
+                VRCompositor_Submit(EVREye_Eye_Right, rightTexture, null, EVRSubmitFlags_Submit_TextureWithDepth)
                 glFlush()
-                glBindFramebuffer(GL_FRAMEBUFFER, leftFramebuffer.handle)
-                //VRCompositor_PostPresentHandoff()
             }
-
-            println("Poses info: connected is ${poses.bDeviceIsConnected()} and valid is ${poses.bPoseIsValid()}")
-            println("Poses info: tracking result is ${poses.eTrackingResult()} and velocity is ${poses.vAngularVelocity()}")
 
             println("End while loop")
 
-            memFree(pixelBuffer)
-
-            println("Freed pixelBuffer")
-
             glDeleteFramebuffers(leftFramebuffer.handle)
             println("Delete the left framebuffer")
+            glDeleteFramebuffers(rightFramebuffer.handle)
+            println("Deleted the right framebuffer")
             glDeleteTextures(leftFramebuffer.textureHandle)
             println("Deleted the left framebuffer texture")
+            glDeleteTextures(rightFramebuffer.textureHandle)
+            println("Deleted the right framebuffer texture")
         } else {
-
             println("Error meaning is ${VR_GetVRInitErrorAsSymbol(pError[0])}")
         }
 
-        println("Shutting down vr...")
         VR_ShutdownInternal()
-        println("Shutdown successfully")
+        println("Shutdown VR successfully")
     }
 
-    println("OpenGL error:" + glGetError())
+    println("OpenGL error: " + glGetError())
 
     GL.destroy()
     glfwDestroyWindow(windowHandle)
     glfwTerminate()
+
+    println("Reached the end of the main method")
 }
 
 class Framebuffer(val handle: Int, val textureHandle: Int)
