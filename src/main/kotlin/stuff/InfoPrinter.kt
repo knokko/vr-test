@@ -95,26 +95,16 @@ fun main() {
             poses.eTrackingResult(123)
             println("Start while loop")
             while (System.currentTimeMillis() < endTime) {
-                //println("Poses: ${VRCompositor_WaitGetPoses(poses, null)}")
-                //println("Submit left: ${VRCompositor_Submit(EVREye_Eye_Left, leftTexture, null, EVRSubmitFlags_Submit_TextureWithDepth)}")
                 // TODO Use a right texture as well
                 VRCompositor_WaitGetPoses(poses, null)
 
                 glClearColor(sin((System.currentTimeMillis() % 100_000) / 1000f) * 0.5f + 0.5f, 0f, 1f, 1f)
                 glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT)
 
-                // TODO Remove after debugging! This kills performance!
-                run {
-                    glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, pixelBuffer)
-                    val firstColor = Color(pixelBuffer[0].toInt() and 0xFF, pixelBuffer[1].toInt() and 0xFF,
-                            pixelBuffer[2].toInt() and 0xFF)
-                    println("The color is $firstColor")
-                }
-
                 VRCompositor_Submit(EVREye_Eye_Left, leftTexture, null, EVRSubmitFlags_Submit_TextureWithDepth)
                 VRCompositor_Submit(EVREye_Eye_Right, leftTexture, null, EVRSubmitFlags_Submit_TextureWithDepth)
                 glFlush()
-                glFinish()
+                glBindFramebuffer(GL_FRAMEBUFFER, leftFramebuffer.handle)
                 //VRCompositor_PostPresentHandoff()
             }
 
@@ -123,17 +113,20 @@ fun main() {
 
             println("End while loop")
 
-            leftTexture.free()
-
             memFree(pixelBuffer)
 
+            println("Freed pixelBuffer")
+
             glDeleteFramebuffers(leftFramebuffer.handle)
+            println("Delete the left framebuffer")
             glDeleteTextures(leftFramebuffer.textureHandle)
+            println("Deleted the left framebuffer texture")
         } else {
 
             println("Error meaning is ${VR_GetVRInitErrorAsSymbol(pError[0])}")
         }
 
+        println("Shutting down vr...")
         VR_ShutdownInternal()
         println("Shutdown successfully")
     }
