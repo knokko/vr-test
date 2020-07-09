@@ -2,19 +2,18 @@ package stuff
 
 import org.lwjgl.glfw.GLFW.*
 import org.lwjgl.opengl.GL
+import org.lwjgl.opengl.GL11
 import org.lwjgl.opengl.GL30.*
 import org.lwjgl.openvr.*
 import org.lwjgl.openvr.VR.*
 import org.lwjgl.openvr.VRCompositor.*
 import org.lwjgl.openvr.VRSystem.*
 import org.lwjgl.system.MemoryStack.stackPush
-import org.lwjgl.system.MemoryUtil
 import org.lwjgl.system.MemoryUtil.*
 import java.awt.Color
 import java.io.File
 import java.io.PrintStream
 import javax.swing.filechooser.FileSystemView
-import kotlin.math.sin
 
 fun main() {
 
@@ -85,6 +84,14 @@ fun main() {
                 println("The color is $firstColor")
             }
 
+            fun printState() {
+                println("Bound texture is ${glGetInteger(GL_TEXTURE_BINDING_2D)}")
+                println("Bound framebuffer is ${glGetInteger(GL_FRAMEBUFFER_BINDING)}")
+            }
+
+            println("Initial:")
+            printState()
+
             println("Should be red now")
             printPixelColor()
 
@@ -102,22 +109,42 @@ fun main() {
             glClear(GL_COLOR_BUFFER_BIT)
             println("Should be green now")
             printPixelColor()
+            printState()
             val leftResultGreen = VRCompositor_Submit(EVREye_Eye_Left, leftTexture, null, EVRSubmitFlags_Submit_TextureWithDepth)
             val rightResultGreen = VRCompositor_Submit(EVREye_Eye_Right, leftTexture, null, EVRSubmitFlags_Submit_TextureWithDepth)
             glFlush()
 
             // Submit blue texture to headset
             val posesResultRed = VRCompositor_WaitGetPoses(poses, null)
+            glBindTexture(GL_TEXTURE_2D, leftFramebuffer.textureHandle)
+            glBindFramebuffer(GL_FRAMEBUFFER, leftFramebuffer.handle)
             glClearColor(0f, 0f, 1f, 1f)
             glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT)
             println("Should be blue now")
             printPixelColor()
+            printState()
             val leftResultRed = VRCompositor_Submit(EVREye_Eye_Left, leftTexture, null, EVRSubmitFlags_Submit_TextureWithDepth)
             val rightResultRed = VRCompositor_Submit(EVREye_Eye_Right, leftTexture, null, EVRSubmitFlags_Submit_TextureWithDepth)
             glFlush()
 
             println("Green results are ($posesResultGreen, $leftResultGreen, $rightResultGreen)")
             println("Red results are ($posesResultRed, $leftResultRed, $rightResultRed)")
+
+            // Now we just keep submitting the same frame for 10 seconds long
+            val endTime = System.currentTimeMillis() + 10_000
+            while (System.currentTimeMillis() < endTime) {
+
+                val posesResult = VRCompositor_WaitGetPoses(poses, null)
+                val leftResult = VRCompositor_Submit(EVREye_Eye_Left, leftTexture, null, EVRSubmitFlags_Submit_TextureWithDepth)
+                val rightResult = VRCompositor_Submit(EVREye_Eye_Right, leftTexture, null, EVRSubmitFlags_Submit_TextureWithDepth)
+                if (posesResult != 0 || leftResult != 0 || rightResult != 0) {
+                    throw RuntimeException("Results are ($posesResult, $leftResult, $rightResult)")
+                }
+
+            }
+
+            println("Final state")
+            printState()
 
             // Cleaning up OpenGL resources
             leftTexture.free()
