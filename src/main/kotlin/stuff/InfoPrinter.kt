@@ -141,6 +141,7 @@ fun main() {
                 // m_mat4HMDPose is the inverse of DeviceToAbsoluteTracking of Hmd (viewMatrix)
 
                 glBindFramebuffer(GL_FRAMEBUFFER, leftFramebuffer.handle)
+                glViewport(0, 0, width, height)
                 glClearColor(timeValue, 0f, 1f, 1f)
                 glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT)
 
@@ -162,6 +163,7 @@ fun main() {
                 glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0)
 
                 glBindFramebuffer(GL_FRAMEBUFFER, rightFramebuffer.handle)
+                glViewport(0, 0, width, height)
                 glClearColor(0f, timeValue, 0f, 1f)
                 glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT)
 
