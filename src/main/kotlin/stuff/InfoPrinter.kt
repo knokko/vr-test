@@ -1,19 +1,23 @@
 package stuff
 
+import org.joml.Matrix4f
+import org.joml.Matrix4x3f
+import org.joml.Vector3f
 import org.lwjgl.glfw.GLFW.*
 import org.lwjgl.opengl.GL
 import org.lwjgl.opengl.GL11
+import org.lwjgl.opengl.GL15
+import org.lwjgl.opengl.GL20
 import org.lwjgl.opengl.GL30.*
 import org.lwjgl.openvr.*
 import org.lwjgl.openvr.VR.*
 import org.lwjgl.openvr.VRCompositor.*
 import org.lwjgl.openvr.VRSystem.*
 import org.lwjgl.system.MemoryStack.stackPush
-import org.lwjgl.system.MemoryUtil
 import org.lwjgl.system.MemoryUtil.*
-import java.awt.Color
 import java.io.File
 import java.io.PrintStream
+import java.util.*
 import javax.swing.filechooser.FileSystemView
 import kotlin.math.sin
 
@@ -38,7 +42,9 @@ fun main() {
     val windowHandle = glfwCreateWindow(1, 1, "Should be invisible", NULL, NULL)
     glfwMakeContextCurrent(windowHandle)
     GL.createCapabilities()
-    glClearColor(1f, 1f, 1f, 1f)
+    glClearColor(0.5f, 0.2f, 0.7f, 1f)
+
+    val glObjects = createGlObjects()
 
     stackPush().use{stack ->
 
@@ -87,19 +93,77 @@ fun main() {
             val endTime = System.currentTimeMillis() + 20_000
 
             val poses = TrackedDevicePose.mallocStack(k_unMaxTrackedDeviceCount, stack)
+            val matrixBuffer = HmdMatrix44.callocStack(stack)
+            val matrixBuffer2 = HmdMatrix34.callocStack(stack)
             println("Start while loop")
             while (System.currentTimeMillis() < endTime) {
 
                 VRCompositor_WaitGetPoses(poses, null)
                 val timeValue = sin((System.currentTimeMillis() % 100_000) / 1000f) * 0.5f + 0.5f
 
+                /*
+                val rawViewMatrix = poses[0].mDeviceToAbsoluteTracking()
+
+                // TODO Next line needs more attention!
+                val viewMatrix = vrToJomlMatrix(rawViewMatrix).invert()
+                println("viewMatrix:")
+                println(viewMatrix)
+                println()
+
+                val leftProjectionMatrix = vrToJomlMatrix(VRSystem_GetProjectionMatrix(EVREye_Eye_Left, 0.01f, 100f, matrixBuffer))
+                val rightProjectionMatrix = vrToJomlMatrix(VRSystem_GetProjectionMatrix(EVREye_Eye_Right, 0.01f, 100f, matrixBuffer))
+                println("left projection matrix:")
+                println(leftProjectionMatrix)
+                println()
+
+                val leftEyeMatrix = vrToJomlMatrix(VRSystem_GetEyeToHeadTransform(EVREye_Eye_Left, matrixBuffer2))
+                val rightEyeMatrix = vrToJomlMatrix(VRSystem_GetEyeToHeadTransform(EVREye_Eye_Right, matrixBuffer2))
+
+                println("Left eye matrix:")
+                println(leftEyeMatrix)
+                println()
+
+                val leftViewMatrix = leftProjectionMatrix.mul(leftEyeMatrix).mul(viewMatrix)
+                val rightViewMatrix = rightProjectionMatrix.mul(rightEyeMatrix).mul(viewMatrix)
+
+                println("leftViewMatrix is:")
+                println(leftViewMatrix)
+                println()
+
+                val testVector = Vector3f(0f, 0f, -1f)
+                println("transform left: ${leftViewMatrix.transformPosition(testVector)}")
+                println("transform right: ${rightViewMatrix.transformPosition(testVector)}")
+                 */
+
+                // matMVP = m_mat4ProjectionLeft * m_mat4eyePosLeft * m_mat4HMDPose;
+                // m_mat4ProjectionLeft is obtained from GetProjectionMatrix
+                // m_mat4eyePosLeft is obtained from GetEyeToHeadTransform
+                // m_mat4HMDPose is the inverse of DeviceToAbsoluteTracking of Hmd (viewMatrix)
+
                 glBindFramebuffer(GL_FRAMEBUFFER, leftFramebuffer.handle)
                 glClearColor(timeValue, 0f, 1f, 1f)
-                glClear(GL_COLOR_BUFFER_BIT)
+                glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT)
+
+                glEnable(GL_DEPTH_TEST)
+                glUseProgram(glObjects.cubeProgram)
+                glBindVertexArray(glObjects.cubeVao)
+
+                val testProjectionMatrix = Matrix4f().perspective(
+                        2f, width.toFloat() / height.toFloat(), 0.01f, 100f
+                )
+                val testViewMatrix = Matrix4f()
+                val testMatrix = testProjectionMatrix.mul(testViewMatrix)
+                stackPush().use{innerStack ->
+                    val innerMatrixBuffer = innerStack.mallocFloat(16)
+                    testMatrix.get(innerMatrixBuffer)
+                    glUniformMatrix4fv(glObjects.uniformCubeMatrix, false, innerMatrixBuffer)
+                }
+                // TODO Stop hardcoding 36
+                glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0)
 
                 glBindFramebuffer(GL_FRAMEBUFFER, rightFramebuffer.handle)
                 glClearColor(0f, timeValue, 0f, 1f)
-                glClear(GL_COLOR_BUFFER_BIT)
+                glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT)
 
                 VRCompositor_Submit(EVREye_Eye_Left, leftTexture, null, EVRSubmitFlags_Submit_TextureWithDepth)
                 VRCompositor_Submit(EVREye_Eye_Right, rightTexture, null, EVRSubmitFlags_Submit_TextureWithDepth)
@@ -124,13 +188,193 @@ fun main() {
         println("Shutdown VR successfully")
     }
 
-    println("OpenGL error: " + glGetError())
+    println("OpenGL error: ${glGetError()}")
+    glObjects.cleanUp()
+    println("OpenGL clean-up error: ${glGetError()}")
 
     GL.destroy()
     glfwDestroyWindow(windowHandle)
     glfwTerminate()
 
     println("Reached the end of the main method")
+}
+
+class GlObjects(
+        val cubeVao: Int,
+        val cubePositions: Int,
+        val cubeColors: Int,
+        val cubeIndices: Int,
+        val cubeProgram: Int,
+        val cubeVertexShader: Int,
+        val cubeFragmentShader: Int,
+        val uniformCubeMatrix: Int
+) {
+
+    fun cleanUp() {
+        glDeleteVertexArrays(cubeVao)
+        glDeleteBuffers(cubePositions)
+        glDeleteBuffers(cubeColors)
+        glDeleteBuffers(cubeIndices)
+
+        glDetachShader(cubeProgram, cubeVertexShader)
+        glDetachShader(cubeProgram, cubeFragmentShader)
+        glDeleteProgram(cubeProgram)
+        glDeleteShader(cubeVertexShader)
+        glDeleteShader(cubeFragmentShader)
+    }
+}
+
+fun createGlObjects(): GlObjects {
+
+    val cubeVao = glGenVertexArrays()
+    glBindVertexArray(cubeVao)
+    // 2 vertex attributes: position and colors
+    glEnableVertexAttribArray(0)
+    glEnableVertexAttribArray(1)
+
+    val cubeIndices = glGenBuffers()
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, cubeIndices)
+    stackPush().use{stack ->
+        val pIndices = stack.ints(
+                0,1,2, 2,3,0,
+                4,5,6, 6,7,4,
+                8,9,10, 10,11,8,
+                12,13,14, 14,15,12,
+                16,17,18, 18,19,16,
+                20,21,22, 22,23,20
+        )
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, pIndices, GL_STATIC_DRAW)
+    }
+
+    val cubePositions = glGenBuffers()
+    glBindBuffer(GL_ARRAY_BUFFER, cubePositions)
+    stackPush().use{stack ->
+        val pPositions = stack.floats(
+
+                // Bottom of the cube
+                -10f, -10f, -10f,
+                10f, -10f, -10f,
+                10f, -10f, 10f,
+                -10f, -10f, 10f,
+
+                // Top of the cube
+                -10f, 10f, -10f,
+                10f, 10f, -10f,
+                10f, 10f, 10f,
+                -10f, 10f, 10f,
+
+                // Negative X side of the cube
+                -10f, -10f, -10f,
+                -10f, -10f, 10f,
+                -10f, 10f, 10f,
+                -10f, 10f, -10f,
+
+                // Positive X side of the cube
+                10f, -10f, -10f,
+                10f, -10f, 10f,
+                10f, 10f, 10f,
+                10f, 10f, -10f,
+
+                // Negative Z side of the cube
+                -10f, -10f, -10f,
+                10f, -10f, -10f,
+                10f, 10f, -10f,
+                -10f, 10f, -10f,
+
+                // Positive Z side of the cube
+                -10f, -10f, 10f,
+                10f, -10f, 10f,
+                10f, 10f, 10f,
+                -10f, 10f, 10f
+        )
+        glBufferData(GL_ARRAY_BUFFER, pPositions, GL_STATIC_DRAW)
+    }
+    glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0)
+
+    val cubeColors = glGenBuffers()
+    glBindBuffer(GL_ARRAY_BUFFER, cubeColors)
+    stackPush().use{stack ->
+        val pColors = stack.floats(
+                // Bottom side
+                1f,0f,0f, 1f,0f,0f, 1f,0f,0f, 1f,0f,0f,
+
+                // Top side
+                0f,1f,1f, 0f,1f,1f, 0f,1f,1f, 0f,1f,1f,
+
+                // Negative X side
+                0f,1f,0f, 0f,1f,0f, 0f,1f,0f, 0f,1f,0f,
+
+                // Positive X side
+                1f,0f,1f, 1f,0f,1f, 1f,0f,1f, 1f,0f,1f,
+
+                // Negative Z side
+                0f,0f,1f, 0f,0f,1f, 0f,0f,1f, 0f,0f,1f,
+
+                // Positive Z side
+                1f,1f,0f, 1f,1f,0f, 1f,1f,0f, 1f,1f,0f
+        )
+        glBufferData(GL_ARRAY_BUFFER, pColors, GL_STATIC_DRAW)
+    }
+    glVertexAttribPointer(1, 3, GL_FLOAT, false, 0, 0)
+
+    // Now it's time for the shaders
+    val program = glCreateProgram()
+    val vertexShader = loadShader("shaders/test.vert", GL_VERTEX_SHADER)
+    val fragmentShader = loadShader("shaders/test.frag", GL_FRAGMENT_SHADER)
+
+    glAttachShader(program, vertexShader)
+    glAttachShader(program, fragmentShader)
+
+    glBindAttribLocation(program, 0, "position")
+    glBindAttribLocation(program, 1, "color")
+
+    glLinkProgram(program)
+    glValidateProgram(program)
+
+    val uniformMatrix = glGetUniformLocation(program, "matrix")
+    return GlObjects(
+            cubeVao, cubePositions, cubeColors, cubeIndices,
+            program, vertexShader, fragmentShader, uniformMatrix
+    )
+}
+
+fun loadShader(path: String, type: Int): Int {
+
+    val shader = glCreateShader(type)
+    val shaderSource = StringBuilder()
+
+    val resource = GlObjects::class.java.classLoader.getResource(path) ?: throw Error("Couldn't load resource $path")
+    val resourceScanner = Scanner(resource.openStream())
+    while (resourceScanner.hasNextLine()) {
+        shaderSource.append(resourceScanner.nextLine())
+        shaderSource.append('\n')
+    }
+    resourceScanner.close()
+
+    glShaderSource(shader, shaderSource)
+    glCompileShader(shader)
+
+    val compileStatus = glGetShaderi(shader, GL_COMPILE_STATUS)
+    if (compileStatus != GL_TRUE) {
+        println("Failed to compile the shader $path:")
+        println(glGetShaderInfoLog(shader))
+        throw Error("Failed to compile shader $path, see log above for details")
+    }
+
+    return shader
+}
+
+fun vrToJomlMatrix(vrMatrix: HmdMatrix34): Matrix4f {
+    return Matrix4f(
+            vrMatrix.m(0), vrMatrix.m(4), vrMatrix.m(8), 0f,
+            vrMatrix.m(1), vrMatrix.m(5), vrMatrix.m(9), 0f,
+            vrMatrix.m(2), vrMatrix.m(6), vrMatrix.m(10), 0f,
+            vrMatrix.m(3), vrMatrix.m(7), vrMatrix.m(11), 1f
+    )
+}
+
+fun vrToJomlMatrix(vrMatrix: HmdMatrix44): Matrix4f {
+    return Matrix4f(vrMatrix.m())
 }
 
 class Framebuffer(val handle: Int, val textureHandle: Int)
