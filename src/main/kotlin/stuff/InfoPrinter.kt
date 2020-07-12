@@ -3,6 +3,7 @@ package stuff
 import org.joml.Matrix4f
 import org.joml.Matrix4x3f
 import org.joml.Vector3f
+import org.joml.Vector4f
 import org.lwjgl.glfw.GLFW.*
 import org.lwjgl.opengl.GL
 import org.lwjgl.opengl.GL11
@@ -15,9 +16,14 @@ import org.lwjgl.openvr.VRCompositor.*
 import org.lwjgl.openvr.VRSystem.*
 import org.lwjgl.system.MemoryStack.stackPush
 import org.lwjgl.system.MemoryUtil.*
+import java.awt.Color
+import java.awt.image.BufferedImage
+import java.awt.image.BufferedImage.TYPE_INT_ARGB
+import java.awt.image.BufferedImage.TYPE_INT_RGB
 import java.io.File
 import java.io.PrintStream
 import java.util.*
+import javax.imageio.ImageIO
 import javax.swing.filechooser.FileSystemView
 import kotlin.math.sin
 
@@ -48,15 +54,18 @@ fun main() {
 
     stackPush().use{stack ->
 
-        val pError = stack.mallocInt(1)
-        val token = VR_InitInternal(pError, EVRApplicationType_VRApplication_Scene)
+        //val pError = stack.mallocInt(1)
+        //val token = VR_InitInternal(pError, EVRApplicationType_VRApplication_Scene)
+        val pError = stack.ints(0)
+        val token = 1
 
         println("Error code for init is ${pError[0]}")
         println("Token is $token")
         if (pError[0] == 0) {
 
-            OpenVR.create(token)
+            //OpenVR.create(token)
 
+            /*
             println("Device classes:")
             for (deviceIndex in 0 until k_unMaxTrackedDeviceCount) {
                 val deviceClass = VRSystem_GetTrackedDeviceClass(deviceIndex)
@@ -74,6 +83,9 @@ fun main() {
             val height = pHeight[0]
 
             println("Recommended render target size is ($width, $height)")
+             */
+            val width = 400
+            val height = 150
 
             val leftFramebuffer = createSimpleFramebuffer(width, height)
             val rightFramebuffer = createSimpleFramebuffer(width, height)
@@ -90,7 +102,7 @@ fun main() {
             rightTexture.handle(rightFramebuffer.textureHandle.toLong())
 
             // Stop after 20 seconds
-            val endTime = System.currentTimeMillis() + 20_000
+            val endTime = System.currentTimeMillis() + 1_000
 
             val poses = TrackedDevicePose.mallocStack(k_unMaxTrackedDeviceCount, stack)
             val matrixBuffer = HmdMatrix44.callocStack(stack)
@@ -98,7 +110,7 @@ fun main() {
             println("Start while loop")
             while (System.currentTimeMillis() < endTime) {
 
-                VRCompositor_WaitGetPoses(poses, null)
+                //VRCompositor_WaitGetPoses(poses, null)
                 val timeValue = sin((System.currentTimeMillis() % 100_000) / 1000f) * 0.5f + 0.5f
 
                 /*
@@ -141,10 +153,11 @@ fun main() {
                 // m_mat4HMDPose is the inverse of DeviceToAbsoluteTracking of Hmd (viewMatrix)
 
                 glBindFramebuffer(GL_FRAMEBUFFER, leftFramebuffer.handle)
-                glClearColor(timeValue, 0f, 1f, 1f)
+                glViewport(0, 0, width, height)
+                glClearColor(1f, 1f, 1f, 1f)
                 glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT)
 
-                glEnable(GL_DEPTH_TEST)
+                //glEnable(GL_DEPTH_TEST)
                 glUseProgram(glObjects.cubeProgram)
                 glBindVertexArray(glObjects.cubeVao)
 
@@ -162,15 +175,35 @@ fun main() {
                 glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0)
 
                 glBindFramebuffer(GL_FRAMEBUFFER, rightFramebuffer.handle)
+                glViewport(0, 0, width, height)
                 glClearColor(0f, timeValue, 0f, 1f)
                 glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT)
 
-                VRCompositor_Submit(EVREye_Eye_Left, leftTexture, null, EVRSubmitFlags_Submit_TextureWithDepth)
-                VRCompositor_Submit(EVREye_Eye_Right, rightTexture, null, EVRSubmitFlags_Submit_TextureWithDepth)
+                //VRCompositor_Submit(EVREye_Eye_Left, leftTexture, null, EVRSubmitFlags_Submit_TextureWithDepth)
+                //VRCompositor_Submit(EVREye_Eye_Right, rightTexture, null, EVRSubmitFlags_Submit_TextureWithDepth)
                 glFlush()
+                Thread.sleep(11)
             }
 
             println("End while loop")
+
+            glBindFramebuffer(GL_FRAMEBUFFER, leftFramebuffer.handle)
+            val pixelBuffer = memAlloc(4 * width * height)
+            glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixelBuffer)
+            val pixelImage = BufferedImage(width, height, TYPE_INT_ARGB)
+            var pixelIndex = 0
+            for (y in 0 until height) {
+                for (x in 0 until width) {
+                    val red = pixelBuffer[pixelIndex++].toInt() and 0xFF
+                    val green = pixelBuffer[pixelIndex++].toInt() and 0xFF
+                    val blue = pixelBuffer[pixelIndex++].toInt() and 0xFF
+                    val alpha = pixelBuffer[pixelIndex++].toInt() and 0xFF
+                    val color = Color(red, green, blue, alpha)
+                    pixelImage.setRGB(x, y, color.rgb)
+                }
+            }
+            ImageIO.write(pixelImage, "PNG", File("pixels.png"))
+            memFree(pixelBuffer)
 
             glDeleteFramebuffers(leftFramebuffer.handle)
             println("Delete the left framebuffer")
@@ -184,7 +217,7 @@ fun main() {
             println("Error meaning is ${VR_GetVRInitErrorAsSymbol(pError[0])}")
         }
 
-        VR_ShutdownInternal()
+        //VR_ShutdownInternal()
         println("Shutdown VR successfully")
     }
 
@@ -332,6 +365,8 @@ fun createGlObjects(): GlObjects {
     glValidateProgram(program)
 
     val uniformMatrix = glGetUniformLocation(program, "matrix")
+    println("uniformMatrix is $uniformMatrix and program is $program and vertex shader is $vertexShader")
+    println("cubeVao is $cubeVao and cubePositions is $cubePositions and cubeIndices is $cubeIndices")
     return GlObjects(
             cubeVao, cubePositions, cubeColors, cubeIndices,
             program, vertexShader, fragmentShader, uniformMatrix
