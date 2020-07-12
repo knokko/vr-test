@@ -30,6 +30,7 @@ allprojects {
     }
 
     sourceCompatibility = 1.8
+    project.ext.jomlVersion = "1.9.24"
     project.ext.lwjglVersion = "3.2.3"
 
     dependencies {
@@ -46,6 +47,7 @@ shadowJar {
 }
 
 dependencies {
+    implementation "org.joml:joml:$jomlVersion"
     implementation "org.lwjgl:lwjgl:$lwjglVersion"
     implementation "org.lwjgl:lwjgl-opengl:$lwjglVersion"
     implementation "org.lwjgl:lwjgl-openvr:$lwjglVersion"
