@@ -101,6 +101,7 @@ fun main() {
                 VRCompositor_WaitGetPoses(poses, null)
                 val timeValue = sin((System.currentTimeMillis() % 100_000) / 1000f) * 0.5f + 0.5f
 
+                println("obtained timeValue")
                 /*
                 val rawViewMatrix = poses[0].mDeviceToAbsoluteTracking()
 
@@ -144,10 +145,12 @@ fun main() {
                 glViewport(0, 0, width, height)
                 glClearColor(timeValue, 0f, 1f, 1f)
                 glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT)
+                println("Cleared left framebuffer")
 
                 glEnable(GL_DEPTH_TEST)
                 glUseProgram(glObjects.cubeProgram)
                 glBindVertexArray(glObjects.cubeVao)
+                println("Prepared cube model and program")
 
                 val testProjectionMatrix = Matrix4f().perspective(
                         2f, width.toFloat() / height.toFloat(), 0.01f, 100f
@@ -159,16 +162,20 @@ fun main() {
                     testMatrix.get(innerMatrixBuffer)
                     glUniformMatrix4fv(glObjects.uniformCubeMatrix, false, innerMatrixBuffer)
                 }
+                println("Prepared cube matrix")
                 // TODO Stop hardcoding 36
                 glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0)
 
+                println("Drawed on left framebuffer")
                 glBindFramebuffer(GL_FRAMEBUFFER, rightFramebuffer.handle)
                 glViewport(0, 0, width, height)
                 glClearColor(0f, timeValue, 0f, 1f)
                 glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT)
+                println("Cleared right framebuffer")
 
                 VRCompositor_Submit(EVREye_Eye_Left, leftTexture, null, EVRSubmitFlags_Submit_TextureWithDepth)
                 VRCompositor_Submit(EVREye_Eye_Right, rightTexture, null, EVRSubmitFlags_Submit_TextureWithDepth)
+                println("Submitted textures")
                 glFlush()
             }
 
