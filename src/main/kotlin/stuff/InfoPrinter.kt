@@ -109,8 +109,8 @@ fun main() {
                 println(viewMatrix)
                 println()
 
-                val leftProjectionMatrix = vrToJomlMatrix(VRSystem_GetProjectionMatrix(EVREye_Eye_Left, 0.01f, 100f, matrixBuffer))
-                val rightProjectionMatrix = vrToJomlMatrix(VRSystem_GetProjectionMatrix(EVREye_Eye_Right, 0.01f, 100f, matrixBuffer))
+                val leftProjectionMatrix = vrToJomlMatrix(VRSystem_GetProjectionMatrix(EVREye_Eye_Left, 0.01f, 100f, matrixBuffer)).transpose()
+                val rightProjectionMatrix = vrToJomlMatrix(VRSystem_GetProjectionMatrix(EVREye_Eye_Right, 0.01f, 100f, matrixBuffer)).transpose()
                 println("left projection matrix:")
                 println(leftProjectionMatrix)
                 println()
