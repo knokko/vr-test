@@ -41,11 +41,14 @@ fun main() {
     glfwSetErrorCallback { errorCode, description ->
         println("GLFW error $errorCode: ${memUTF8(description)}")
     }
-    glfwInitHint(GLFW_COCOA_MENUBAR, GLFW_FALSE)
+    //glfwInitHint(GLFW_COCOA_MENUBAR, GLFW_FALSE)
     glfwInit()
-    glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE)
+    //glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE)
 
-    val windowHandle = glfwCreateWindow(1, 1, "Should be invisible", NULL, NULL)
+    val width = 1400
+    val height = 1500
+
+    val windowHandle = glfwCreateWindow(width, height, "Should be visible", NULL, NULL)
     glfwMakeContextCurrent(windowHandle)
     GL.createCapabilities()
     glClearColor(0.5f, 0.2f, 0.7f, 1f)
@@ -84,8 +87,7 @@ fun main() {
 
             println("Recommended render target size is ($width, $height)")
              */
-            val width = 400
-            val height = 150
+
 
             val leftFramebuffer = createSimpleFramebuffer(width, height)
             val rightFramebuffer = createSimpleFramebuffer(width, height)
@@ -102,11 +104,47 @@ fun main() {
             rightTexture.handle(rightFramebuffer.textureHandle.toLong())
 
             // Stop after 20 seconds
-            val endTime = System.currentTimeMillis() + 1_000
+            val endTime = System.currentTimeMillis() + 5_000
+
+            val testProjectionMatrix = Matrix4f().perspective(
+                    2f, width.toFloat() / height.toFloat(), 0.01f, 100f
+            )
+            println(testProjectionMatrix)
+
+            val vrProjectionMatrix = Matrix4f(
+            9.173E-1f,  0.000E+0f,  0.000E+0f,  0.000E+0f,
+            0.000E+0f,  8.335E-1f,  0.000E+0f,  0.000E+0f,
+            -1.741E-1f, -1.061E-1f, -1.000E+0f, -1.000E+0f,
+            0.000E+0f,  0.000E+0f, -1.000E-2f,  0.000E+0f
+            )
+
+            val vrViewMatrix = Matrix4f(
+                    8.651E-1f, -4.040E-2f, -5.000E-1f, -6.027E-2f,
+                    -7.920E-2f,  9.733E-1f, -2.157E-1f, -1.124E+0f,
+                    4.954E-1f,  2.262E-1f,  8.387E-1f,  1.328E-1f,
+                    0.000E+0f,  0.000E+0f,  0.000E+0f,  1.000E+0f
+            ).transpose()
+
+            val vrEyeMatrix = Matrix4f(
+                    1.000E+0f,  0.000E+0f,  0.000E+0f, -3.507E-2f,
+                    0.000E+0f,  1.000E+0f,  0.000E+0f,  0.000E+0f,
+                    0.000E+0f,  0.000E+0f,  1.000E+0f,  3.000E-2f,
+                    0.000E+0f,  0.000E+0f,  0.000E+0f,  1.000E+0f
+            ).transpose()
+
+            val vrMatrix = Matrix4f(
+                    7.936E-1f, -3.706E-2f, -4.586E-1f, -8.746E-2f,
+                    -6.601E-2f,  8.112E-1f, -1.798E-1f, -9.369E-1f,
+                    -6.376E-1f, -3.224E-1f, -7.288E-1f, -1.027E+0f,
+                    -4.954E-3f, -2.262E-3f, -8.387E-3f, -1.628E-3f
+            ).transpose()
+
+            val testMatrix = vrProjectionMatrix.mul(vrViewMatrix, Matrix4f()).mul(vrEyeMatrix, Matrix4f())
 
             val poses = TrackedDevicePose.mallocStack(k_unMaxTrackedDeviceCount, stack)
             val matrixBuffer = HmdMatrix44.callocStack(stack)
             val matrixBuffer2 = HmdMatrix34.callocStack(stack)
+            val rng = Random()
             println("Start while loop")
             while (System.currentTimeMillis() < endTime) {
 
@@ -152,7 +190,7 @@ fun main() {
                 // m_mat4eyePosLeft is obtained from GetEyeToHeadTransform
                 // m_mat4HMDPose is the inverse of DeviceToAbsoluteTracking of Hmd (viewMatrix)
 
-                glBindFramebuffer(GL_FRAMEBUFFER, leftFramebuffer.handle)
+                glBindFramebuffer(GL_FRAMEBUFFER, 0)
                 glViewport(0, 0, width, height)
                 glClearColor(1f, 1f, 1f, 1f)
                 glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT)
@@ -161,14 +199,16 @@ fun main() {
                 glUseProgram(glObjects.cubeProgram)
                 glBindVertexArray(glObjects.cubeVao)
 
-                val testProjectionMatrix = Matrix4f().perspective(
-                        2f, width.toFloat() / height.toFloat(), 0.01f, 100f
-                )
-                val testViewMatrix = Matrix4f()
-                val testMatrix = testProjectionMatrix.mul(testViewMatrix)
+                val transformMatrix = Matrix4f()
+                transformMatrix.translate(30f * rng.nextFloat() - 15f, 50f * rng.nextFloat() - 25f, 20f * rng.nextFloat() - 10f)
+                transformMatrix.rotate(6f * rng.nextFloat(), Vector3f(0f, 0f, 1f))
+                transformMatrix.rotate(6f * rng.nextFloat(), Vector3f(1f, 0f, 0f))
+                transformMatrix.rotate(6f * rng.nextFloat(), Vector3f(0f, 1f, 0f))
+
                 stackPush().use{innerStack ->
                     val innerMatrixBuffer = innerStack.mallocFloat(16)
-                    testMatrix.get(innerMatrixBuffer)
+                    val currentMatrix = testMatrix.mul(transformMatrix, Matrix4f())
+                    currentMatrix.get(innerMatrixBuffer)
                     glUniformMatrix4fv(glObjects.uniformCubeMatrix, false, innerMatrixBuffer)
                 }
                 // TODO Stop hardcoding 36
@@ -182,6 +222,8 @@ fun main() {
                 //VRCompositor_Submit(EVREye_Eye_Left, leftTexture, null, EVRSubmitFlags_Submit_TextureWithDepth)
                 //VRCompositor_Submit(EVREye_Eye_Right, rightTexture, null, EVRSubmitFlags_Submit_TextureWithDepth)
                 glFlush()
+                glfwSwapBuffers(windowHandle)
+                glfwPollEvents()
                 Thread.sleep(11)
             }
 
@@ -285,40 +327,40 @@ fun createGlObjects(): GlObjects {
         val pPositions = stack.floats(
 
                 // Bottom of the cube
-                -10f, -10f, -10f,
-                10f, -10f, -10f,
-                10f, -10f, 10f,
-                -10f, -10f, 10f,
+                -100f, -100f, -100f,
+                100f, -100f, -100f,
+                100f, -100f, 100f,
+                -100f, -100f, 100f,
 
                 // Top of the cube
-                -10f, 10f, -10f,
-                10f, 10f, -10f,
-                10f, 10f, 10f,
-                -10f, 10f, 10f,
+                -100f, 100f, -100f,
+                100f, 100f, -100f,
+                100f, 100f, 100f,
+                -100f, 100f, 100f,
 
                 // Negative X side of the cube
-                -10f, -10f, -10f,
-                -10f, -10f, 10f,
-                -10f, 10f, 10f,
-                -10f, 10f, -10f,
+                -100f, -100f, -100f,
+                -100f, -100f, 100f,
+                -100f, 100f, 100f,
+                -100f, 100f, -100f,
 
                 // Positive X side of the cube
-                10f, -10f, -10f,
-                10f, -10f, 10f,
-                10f, 10f, 10f,
-                10f, 10f, -10f,
+                100f, -100f, -100f,
+                100f, -100f, 100f,
+                100f, 100f, 100f,
+                100f, 100f, -100f,
 
                 // Negative Z side of the cube
-                -10f, -10f, -10f,
-                10f, -10f, -10f,
-                10f, 10f, -10f,
-                -10f, 10f, -10f,
+                -100f, -100f, -100f,
+                100f, -100f, -100f,
+                100f, 100f, -100f,
+                -100f, 100f, -100f,
 
                 // Positive Z side of the cube
-                -10f, -10f, 10f,
-                10f, -10f, 10f,
-                10f, 10f, 10f,
-                -10f, 10f, 10f
+                -100f, -100f, 100f,
+                100f, -100f, 100f,
+                100f, 100f, 100f,
+                -100f, 100f, 100f
         )
         glBufferData(GL_ARRAY_BUFFER, pPositions, GL_STATIC_DRAW)
     }
