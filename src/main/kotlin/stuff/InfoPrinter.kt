@@ -99,62 +99,31 @@ fun main() {
             while (System.currentTimeMillis() < endTime) {
 
                 VRCompositor_WaitGetPoses(poses, null)
-                val timeValue = sin((System.currentTimeMillis() % 100_000) / 1000f) * 0.5f + 0.5f
 
                 val rawViewMatrix = poses[0].mDeviceToAbsoluteTracking()
 
-                // TODO Next line needs more attention!
                 val viewMatrix = vrToJomlMatrix(rawViewMatrix).invert()
-                println("viewMatrix:")
-                println(viewMatrix)
-                println()
 
                 val leftProjectionMatrix = vrToJomlMatrix(VRSystem_GetProjectionMatrix(EVREye_Eye_Left, 0.01f, 100f, matrixBuffer)).transpose()
                 val rightProjectionMatrix = vrToJomlMatrix(VRSystem_GetProjectionMatrix(EVREye_Eye_Right, 0.01f, 100f, matrixBuffer)).transpose()
-                println("left projection matrix:")
-                println(leftProjectionMatrix)
-                println()
 
                 val leftEyeMatrix = vrToJomlMatrix(VRSystem_GetEyeToHeadTransform(EVREye_Eye_Left, matrixBuffer2))
                 val rightEyeMatrix = vrToJomlMatrix(VRSystem_GetEyeToHeadTransform(EVREye_Eye_Right, matrixBuffer2))
 
-                println("Left eye matrix:")
-                println(leftEyeMatrix)
-                println()
-
                 val leftViewMatrix = leftProjectionMatrix.mul(leftEyeMatrix).mul(viewMatrix)
                 val rightViewMatrix = rightProjectionMatrix.mul(rightEyeMatrix).mul(viewMatrix)
-
-                println("leftViewMatrix is:")
-                println(leftViewMatrix)
-                println()
 
                 // matMVP = m_mat4ProjectionLeft * m_mat4eyePosLeft * m_mat4HMDPose;
                 // m_mat4ProjectionLeft is obtained from GetProjectionMatrix
                 // m_mat4eyePosLeft is obtained from GetEyeToHeadTransform
                 // m_mat4HMDPose is the inverse of DeviceToAbsoluteTracking of Hmd (viewMatrix)
 
-                glBindFramebuffer(GL_FRAMEBUFFER, leftFramebuffer.handle)
                 glViewport(0, 0, width, height)
-                glClearColor(timeValue, 0f, 1f, 1f)
-                glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT)
-
-                glEnable(GL_DEPTH_TEST)
-                glUseProgram(glObjects.cubeProgram)
-                glBindVertexArray(glObjects.cubeVao)
-
-                stackPush().use{innerStack ->
-                    val innerMatrixBuffer = innerStack.mallocFloat(16)
-                    leftViewMatrix.get(innerMatrixBuffer)
-                    glUniformMatrix4fv(glObjects.uniformCubeMatrix, false, innerMatrixBuffer)
-                }
-                // TODO Stop hardcoding 36
-                glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0)
+                glBindFramebuffer(GL_FRAMEBUFFER, leftFramebuffer.handle)
+                drawScene(glObjects, leftViewMatrix)
 
                 glBindFramebuffer(GL_FRAMEBUFFER, rightFramebuffer.handle)
-                glViewport(0, 0, width, height)
-                glClearColor(0f, timeValue, 0f, 1f)
-                glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT)
+                drawScene(glObjects, rightViewMatrix)
 
                 VRCompositor_Submit(EVREye_Eye_Left, leftTexture, null, EVRSubmitFlags_Submit_TextureWithDepth)
                 VRCompositor_Submit(EVREye_Eye_Right, rightTexture, null, EVRSubmitFlags_Submit_TextureWithDepth)
@@ -188,6 +157,23 @@ fun main() {
     glfwTerminate()
 
     println("Reached the end of the main method")
+}
+
+fun drawScene(glObjects: GlObjects, viewMatrix: Matrix4f) {
+    glClearColor(1f, 0f, 1f, 1f)
+    glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT)
+
+    glEnable(GL_DEPTH_TEST)
+    glUseProgram(glObjects.cubeProgram)
+    glBindVertexArray(glObjects.cubeVao)
+
+    stackPush().use{innerStack ->
+        val innerMatrixBuffer = innerStack.mallocFloat(16)
+        viewMatrix.get(innerMatrixBuffer)
+        glUniformMatrix4fv(glObjects.uniformCubeMatrix, false, innerMatrixBuffer)
+    }
+    // TODO Stop hardcoding 36
+    glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0)
 }
 
 class GlObjects(
