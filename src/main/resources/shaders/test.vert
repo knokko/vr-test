@@ -5,9 +5,11 @@ in vec3 color;
 
 out vec3 passColor;
 
-uniform mat4 matrix;
+uniform mat4 eyeMatrix;
+
+uniform mat4 transformationMatrix;
 
 void main() {
     passColor = color;
-    gl_Position = matrix * vec4(position, 1.0);
+    gl_Position = eyeMatrix* transformationMatrix * vec4(position, 1.0);
 }
