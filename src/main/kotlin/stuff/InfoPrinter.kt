@@ -101,9 +101,6 @@ fun main() {
                 val leftEyeMatrix = createEyeMatrix(poses, EVREye_Eye_Left)
                 val rightEyeMatrix = createEyeMatrix(poses, EVREye_Eye_Right)
 
-                val transformationMatrix = Matrix4f()
-
-
                 glViewport(0, 0, width, height)
                 glBindFramebuffer(GL_FRAMEBUFFER, leftFramebuffer.handle)
                 drawScene(glObjects, leftEyeMatrix)
@@ -170,7 +167,9 @@ fun createEyeMatrix(poses: TrackedDevicePose.Buffer, leftOrRight: Int): Matrix4f
 
 fun drawScene(glObjects: GlObjects, viewMatrix: Matrix4f) {
 
-    val transformationMatrix = Matrix4f()
+    val transformationMatrix = Matrix4f().translate(50f, 0f, 50f)
+    val transformationMatrix2 = Matrix4f().translate(20f, 10f, 20f)
+
 
     glClearColor(1f, 0f, 1f, 1f)
     glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT)
@@ -191,9 +190,20 @@ fun drawScene(glObjects: GlObjects, viewMatrix: Matrix4f) {
         glUniformMatrix4fv(glObjects.transformationMatrix, false, innerMatrixBuffer)
     }
 
+    // TODO Stop hardcoding 36
+    glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0)
+
+
+    stackPush().use{innerStack ->
+        val innerMatrixBuffer = innerStack.mallocFloat(16)
+        transformationMatrix2.get(innerMatrixBuffer)
+        glUniformMatrix4fv(glObjects.transformationMatrix, false, innerMatrixBuffer)
+    }
+
 
     // TODO Stop hardcoding 36
     glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0)
+
 }
 
 class GlObjects(
@@ -329,8 +339,10 @@ fun createGlObjects(): GlObjects {
     glLinkProgram(program)
     glValidateProgram(program)
 
-    val uniformEyeMatrix = glGetUniformLocation(program, "EyeMatrix")
+    val uniformEyeMatrix = glGetUniformLocation(program, "eyeMatrix")
     val uniformTransformationMatrix = glGetUniformLocation(program, "transformationMatrix")
+
+
     return GlObjects(
             cubeVao, cubePositions, cubeColors, cubeIndices,
             program, vertexShader, fragmentShader, uniformEyeMatrix, uniformTransformationMatrix
