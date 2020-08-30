@@ -15,9 +15,13 @@ import org.lwjgl.openvr.VRCompositor.*
 import org.lwjgl.openvr.VRSystem.*
 import org.lwjgl.system.MemoryStack.stackPush
 import org.lwjgl.system.MemoryUtil.*
+import java.awt.Color
+import java.awt.image.BufferedImage
+import java.awt.image.BufferedImage.TYPE_INT_RGB
 import java.io.File
 import java.io.PrintStream
 import java.util.*
+import javax.imageio.ImageIO
 import javax.swing.filechooser.FileSystemView
 import kotlin.math.sin
 
@@ -93,6 +97,8 @@ fun main() {
             val endTime = System.currentTimeMillis() + 20_000
 
             val poses = TrackedDevicePose.mallocStack(k_unMaxTrackedDeviceCount, stack)
+
+            var eyeShotNumber = 0
             println("Start while loop")
             while (System.currentTimeMillis() < endTime) {
 
@@ -103,14 +109,15 @@ fun main() {
 
                 glViewport(0, 0, width, height)
                 glBindFramebuffer(GL_FRAMEBUFFER, leftFramebuffer.handle)
-                drawScene(glObjects, leftEyeMatrix)
+                drawScene(glObjects, leftEyeMatrix, if (eyeShotNumber % 450 == 0) eyeShotNumber / 450 else null, width, height, true)
 
                 glBindFramebuffer(GL_FRAMEBUFFER, rightFramebuffer.handle)
-                drawScene(glObjects, rightEyeMatrix)
+                drawScene(glObjects, rightEyeMatrix, if (eyeShotNumber % 450 == 0) eyeShotNumber / 450 else null, width, height, false)
 
                 VRCompositor_Submit(EVREye_Eye_Left, leftTexture, null, EVRSubmitFlags_Submit_TextureWithDepth)
                 VRCompositor_Submit(EVREye_Eye_Right, rightTexture, null, EVRSubmitFlags_Submit_TextureWithDepth)
                 glFlush()
+                eyeShotNumber++
             }
 
             println("End while loop")
@@ -165,7 +172,7 @@ fun createEyeMatrix(poses: TrackedDevicePose.Buffer, leftOrRight: Int): Matrix4f
     }
 }
 
-fun drawScene(glObjects: GlObjects, viewMatrix: Matrix4f) {
+fun drawScene(glObjects: GlObjects, viewMatrix: Matrix4f, eyeShotNumber: Int?, width: Int, height: Int, isLeft: Boolean) {
 
     val transformationMatrix = Matrix4f().translate(50f, 0f, 50f)
     val transformationMatrix2 = Matrix4f().translate(20f, 10f, 20f)
@@ -204,6 +211,21 @@ fun drawScene(glObjects: GlObjects, viewMatrix: Matrix4f) {
     // TODO Stop hardcoding 36
     glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0)
 
+    if (eyeShotNumber != null) {
+        val pixelBuffer = memAlloc(width * height * 4)
+        glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixelBuffer)
+        val image = BufferedImage(width, height, TYPE_INT_RGB)
+        for (x in 0 until width) {
+            for (y in 0 until height) {
+                val index = 4 * (y * width + x)
+                val color = Color(pixelBuffer[index].toInt(), pixelBuffer[index + 1].toInt(), pixelBuffer[index + 2].toInt())
+                image.setRGB(x, y, color.rgb)
+            }
+        }
+        val leftOrRight = if (isLeft) "Left" else "Right"
+        ImageIO.write(image, "PNG", File("eyeShot$leftOrRight$eyeShotNumber.png"))
+        memFree(pixelBuffer)
+    }
 }
 
 class GlObjects(
