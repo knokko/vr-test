@@ -218,7 +218,11 @@ fun drawScene(glObjects: GlObjects, viewMatrix: Matrix4f, eyeShotNumber: Int?, w
         for (x in 0 until width) {
             for (y in 0 until height) {
                 val index = 4 * (y * width + x)
-                val color = Color(pixelBuffer[index].toInt(), pixelBuffer[index + 1].toInt(), pixelBuffer[index + 2].toInt())
+                val color = Color(
+                        pixelBuffer[index].toInt() and 0xFF,
+                        pixelBuffer[index + 1].toInt() and 0xFF,
+                        pixelBuffer[index + 2].toInt() and 0xFF
+                )
                 image.setRGB(x, y, color.rgb)
             }
         }
