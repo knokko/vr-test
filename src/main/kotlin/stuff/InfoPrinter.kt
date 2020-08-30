@@ -93,37 +93,20 @@ fun main() {
             val endTime = System.currentTimeMillis() + 20_000
 
             val poses = TrackedDevicePose.mallocStack(k_unMaxTrackedDeviceCount, stack)
-            val matrixBuffer = HmdMatrix44.callocStack(stack)
-            val matrixBuffer2 = HmdMatrix34.callocStack(stack)
             println("Start while loop")
             while (System.currentTimeMillis() < endTime) {
 
                 VRCompositor_WaitGetPoses(poses, null)
 
-                val rawViewMatrix = poses[0].mDeviceToAbsoluteTracking()
-
-                val viewMatrix = vrToJomlMatrix(rawViewMatrix).invert()
-
-                val leftProjectionMatrix = vrToJomlMatrix(VRSystem_GetProjectionMatrix(EVREye_Eye_Left, 0.01f, 100f, matrixBuffer)).transpose()
-                val rightProjectionMatrix = vrToJomlMatrix(VRSystem_GetProjectionMatrix(EVREye_Eye_Right, 0.01f, 100f, matrixBuffer)).transpose()
-
-                val leftEyeMatrix = vrToJomlMatrix(VRSystem_GetEyeToHeadTransform(EVREye_Eye_Left, matrixBuffer2))
-                val rightEyeMatrix = vrToJomlMatrix(VRSystem_GetEyeToHeadTransform(EVREye_Eye_Right, matrixBuffer2))
-
-                val leftViewMatrix = leftProjectionMatrix.mul(leftEyeMatrix).mul(viewMatrix)
-                val rightViewMatrix = rightProjectionMatrix.mul(rightEyeMatrix).mul(viewMatrix)
-
-                // matMVP = m_mat4ProjectionLeft * m_mat4eyePosLeft * m_mat4HMDPose;
-                // m_mat4ProjectionLeft is obtained from GetProjectionMatrix
-                // m_mat4eyePosLeft is obtained from GetEyeToHeadTransform
-                // m_mat4HMDPose is the inverse of DeviceToAbsoluteTracking of Hmd (viewMatrix)
+                val leftEyeMatrix = createEyeMatrix(poses, EVREye_Eye_Left)
+                val rightEyeMatrix = createEyeMatrix(poses, EVREye_Eye_Right)
 
                 glViewport(0, 0, width, height)
                 glBindFramebuffer(GL_FRAMEBUFFER, leftFramebuffer.handle)
-                drawScene(glObjects, leftViewMatrix)
+                drawScene(glObjects, leftEyeMatrix)
 
                 glBindFramebuffer(GL_FRAMEBUFFER, rightFramebuffer.handle)
-                drawScene(glObjects, rightViewMatrix)
+                drawScene(glObjects, rightEyeMatrix)
 
                 VRCompositor_Submit(EVREye_Eye_Left, leftTexture, null, EVRSubmitFlags_Submit_TextureWithDepth)
                 VRCompositor_Submit(EVREye_Eye_Right, rightTexture, null, EVRSubmitFlags_Submit_TextureWithDepth)
@@ -157,6 +140,28 @@ fun main() {
     glfwTerminate()
 
     println("Reached the end of the main method")
+}
+
+
+fun createEyeMatrix(poses: TrackedDevicePose.Buffer, leftOrRight: Int): Matrix4f {
+
+    return stackPush().use { stack ->
+        val matrixBuffer = HmdMatrix44.callocStack(stack)
+        val matrixBuffer2 = HmdMatrix34.callocStack(stack)
+        val projectionMatrix = vrToJomlMatrix(VRSystem_GetProjectionMatrix(leftOrRight, 0.01f, 100f, matrixBuffer)).transpose()
+
+        val rawViewMatrix = poses[0].mDeviceToAbsoluteTracking()
+        val viewMatrix = vrToJomlMatrix(rawViewMatrix).invert()
+
+        val eyeToHeadTransform = vrToJomlMatrix(VRSystem_GetEyeToHeadTransform(leftOrRight, matrixBuffer2))
+
+        projectionMatrix.mul(eyeToHeadTransform).mul(viewMatrix)
+
+        // matMVP = m_mat4ProjectionLeft * m_mat4eyePosLeft * m_mat4HMDPose;
+        // m_mat4ProjectionLeft is obtained from GetProjectionMatrix
+        // m_mat4eyePosLeft is obtained from GetEyeToHeadTransform
+        // m_mat4HMDPose is the inverse of DeviceToAbsoluteTracking of Hmd (viewMatrix)
+    }
 }
 
 fun drawScene(glObjects: GlObjects, viewMatrix: Matrix4f) {
