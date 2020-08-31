@@ -182,7 +182,7 @@ fun drawScene(glObjects: GlObjects, viewMatrix: Matrix4f, eyeShotNumber: Int?, w
     glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT)
 
     glEnable(GL_DEPTH_TEST)
-    glUseProgram(glObjects.cubeProgram)
+    glUseProgram(glObjects.simpleProgram)
     glBindVertexArray(glObjects.cubeVao)
 
     stackPush().use{innerStack ->
@@ -211,6 +211,11 @@ fun drawScene(glObjects: GlObjects, viewMatrix: Matrix4f, eyeShotNumber: Int?, w
     // TODO Stop hardcoding 36
     glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0)
 
+
+    glBindVertexArray(glObjects.cylinderVao)
+    glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0)
+
+
     if (eyeShotNumber != null) {
         val pixelBuffer = memAlloc(width * height * 4)
         glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixelBuffer)
@@ -237,9 +242,15 @@ class GlObjects(
         val cubePositions: Int,
         val cubeColors: Int,
         val cubeIndices: Int,
-        val cubeProgram: Int,
-        val cubeVertexShader: Int,
-        val cubeFragmentShader: Int,
+
+        val cylinderVao: Int,
+        val cylinderPositions: Int,
+        val cylinderColors: Int,
+        val cylinderIndices: Int,
+
+        val simpleFragmentShader: Int,
+        val simpleVertexShader: Int,
+        val simpleProgram: Int,
         val uniformEyeMatrix: Int,
         val transformationMatrix: Int
 ) {
@@ -250,18 +261,26 @@ class GlObjects(
         glDeleteBuffers(cubeColors)
         glDeleteBuffers(cubeIndices)
 
-        glDetachShader(cubeProgram, cubeVertexShader)
-        glDetachShader(cubeProgram, cubeFragmentShader)
-        glDeleteProgram(cubeProgram)
-        glDeleteShader(cubeVertexShader)
-        glDeleteShader(cubeFragmentShader)
+        glDeleteVertexArrays(cylinderVao)
+        glDeleteBuffers(cylinderPositions)
+        glDeleteBuffers(cylinderColors)
+        glDeleteBuffers(cylinderIndices)
+
+
+        glDetachShader(simpleProgram, simpleVertexShader)
+        glDetachShader(simpleProgram, simpleFragmentShader)
+        glDeleteProgram(simpleProgram)
+        glDeleteShader(simpleVertexShader)
+        glDeleteShader(simpleFragmentShader)
     }
 }
 
 fun createGlObjects(): GlObjects {
 
+    //Object Cube
     val cubeVao = glGenVertexArrays()
     glBindVertexArray(cubeVao)
+
     // 2 vertex attributes: position and colors
     glEnableVertexAttribArray(0)
     glEnableVertexAttribArray(1)
@@ -351,6 +370,97 @@ fun createGlObjects(): GlObjects {
     }
     glVertexAttribPointer(1, 3, GL_FLOAT, false, 0, 0)
 
+
+    //object cylinder
+    val cylinderVao = glGenVertexArrays()
+    glBindVertexArray(cylinderVao)
+
+    val cylinderIndices = glGenBuffers()
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, cylinderIndices)
+    stackPush().use{stack ->
+        val pIndices = stack.ints(
+                0,1,2, 2,3,0,
+                4,5,6, 6,7,4,
+                8,9,10, 10,11,8,
+                12,13,14, 14,15,12,
+                16,17,18, 18,19,16,
+                20,21,22, 22,23,20
+        )
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, pIndices, GL_STATIC_DRAW)
+    }
+
+    val cylinderPositions = glGenBuffers()
+    glBindBuffer(GL_ARRAY_BUFFER, cylinderPositions)
+    stackPush().use{stack ->
+        val pPositions = stack.floats(
+
+                // Bottom of the cube
+                -20f, -20f, -20f,
+                10f, -10f, -10f,
+                10f, -10f, 10f,
+                -10f, -10f, 10f,
+
+                // Top of the cube
+                -10f, 10f, -10f,
+                10f, 10f, -10f,
+                10f, 10f, 10f,
+                -10f, 10f, 10f,
+
+                // Negative X side of the cube
+                -10f, -10f, -10f,
+                -10f, -10f, 10f,
+                -10f, 10f, 10f,
+                -10f, 10f, -10f,
+
+                // Positive X side of the cube
+                10f, -10f, -10f,
+                10f, -10f, 10f,
+                10f, 10f, 10f,
+                15f, 15f, -15f,
+
+                // Negative Z side of the cube
+                -10f, -10f, -10f,
+                10f, -10f, -10f,
+                10f, 10f, -10f,
+                -10f, 10f, -10f,
+
+                // Positive Z side of the cube
+                -10f, -10f, 10f,
+                10f, -10f, 10f,
+                10f, 10f, 10f,
+                -10f, 10f, 10f
+        )
+        glBufferData(GL_ARRAY_BUFFER, pPositions, GL_STATIC_DRAW)
+    }
+    glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0)
+
+    val cylinderColors = glGenBuffers()
+    glBindBuffer(GL_ARRAY_BUFFER, cylinderColors)
+    stackPush().use{stack ->
+        val pColors = stack.floats(
+                // Bottom side
+                0.5f,0f,0f, 0.5f,0f,0f, 0.5f,0f,0f, 0.5f,0f,0f,
+
+                // Top side
+                0f,1f,1f, 0f,1f,1f, 0f,0.75f,0.35f, 0f,0.5f,0.5f,
+
+                // Negative X side
+                0f,1f,0f, 0f,1f,0f, 0f,1f,0f, 0f,1f,0f,
+
+                // Positive X side
+                1f,0f,1f, 1f,0f,1f, 1f,0f,1f, 1f,0f,1f,
+
+                // Negative Z side
+                0f,0f,1f, 0f,0f,1f, 0f,0f,1f, 0f,0f,1f,
+
+                // Positive Z side
+                1f,1f,0f, 1f,1f,0f, 1f,1f,0f, 1f,1f,0f
+        )
+        glBufferData(GL_ARRAY_BUFFER, pColors, GL_STATIC_DRAW)
+    }
+    glVertexAttribPointer(1, 3, GL_FLOAT, false, 0, 0)
+
+
     // Now it's time for the shaders
     val program = glCreateProgram()
     val vertexShader = loadShader("shaders/test.vert", GL_VERTEX_SHADER)
@@ -371,6 +481,7 @@ fun createGlObjects(): GlObjects {
 
     return GlObjects(
             cubeVao, cubePositions, cubeColors, cubeIndices,
+            cylinderVao, cylinderPositions, cylinderColors,cylinderIndices,
             program, vertexShader, fragmentShader, uniformEyeMatrix, uniformTransformationMatrix
     )
 }
