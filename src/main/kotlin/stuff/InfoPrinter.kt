@@ -192,6 +192,8 @@ fun drawScene(glObjects: GlObjects, viewMatrix: Matrix4f, eyeShotNumber: Int?, w
         glUniformMatrix4fv(glObjects.uniformEyeMatrix, false, innerMatrixBuffer)
     }
 
+    println("drawError1: ${glGetError()}")
+
     stackPush().use{innerStack ->
         val innerMatrixBuffer = innerStack.mallocFloat(16)
         transformationMatrix.get(innerMatrixBuffer)
@@ -208,12 +210,16 @@ fun drawScene(glObjects: GlObjects, viewMatrix: Matrix4f, eyeShotNumber: Int?, w
         glUniformMatrix4fv(glObjects.transformationMatrix, false, innerMatrixBuffer)
     }
 
+    println("drawError2: ${glGetError()}")
+
 
     // TODO Stop hardcoding 36
     glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0)
 
+    println("drawError3: ${glGetError()}")
 
     glBindVertexArray(glObjects.cylinderVao)
+    println("drawError4: ${glGetError()}")
     glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0)
 
     println("drawErrorEnd: ${glGetError()}")
