@@ -386,6 +386,9 @@ fun createGlObjects(): GlObjects {
     val cylinderVao = glGenVertexArrays()
     glBindVertexArray(cylinderVao)
 
+    glEnableVertexAttribArray(0)
+    glEnableVertexAttribArray(1)
+
     val cylinderIndices = glGenBuffers()
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, cylinderIndices)
     stackPush().use{stack ->
