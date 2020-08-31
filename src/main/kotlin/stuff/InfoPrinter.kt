@@ -232,7 +232,9 @@ fun drawScene(glObjects: GlObjects, viewMatrix: Matrix4f, eyeShotNumber: Int?, w
             }
         }
         val leftOrRight = if (isLeft) "Left" else "Right"
-        ImageIO.write(image, "PNG", File("eyeShot$leftOrRight$eyeShotNumber.png"))
+        val eyeShotDirectory = File("${FileSystemView.getFileSystemView().homeDirectory}/eyeShots")
+        eyeShotDirectory.mkdirs()
+        ImageIO.write(image, "PNG", File("$eyeShotDirectory/$leftOrRight$eyeShotNumber.png"))
         memFree(pixelBuffer)
     }
 }
