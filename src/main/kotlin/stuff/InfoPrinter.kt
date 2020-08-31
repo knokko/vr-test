@@ -177,6 +177,7 @@ fun drawScene(glObjects: GlObjects, viewMatrix: Matrix4f, eyeShotNumber: Int?, w
     val transformationMatrix = Matrix4f().translate(50f, 0f, 50f)
     val transformationMatrix2 = Matrix4f().translate(20f, 10f, 20f)
 
+    println("drawErrorStart: ${glGetError()}")
 
     glClearColor(1f, 0f, 1f, 1f)
     glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT)
@@ -215,6 +216,7 @@ fun drawScene(glObjects: GlObjects, viewMatrix: Matrix4f, eyeShotNumber: Int?, w
     glBindVertexArray(glObjects.cylinderVao)
     glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0)
 
+    println("drawErrorEnd: ${glGetError()}")
 
     if (eyeShotNumber != null) {
         val pixelBuffer = memAlloc(width * height * 4)
@@ -279,6 +281,7 @@ class GlObjects(
 
 fun createGlObjects(): GlObjects {
 
+    println("createErrorStart: ${glGetError()}")
     //Object Cube
     val cubeVao = glGenVertexArrays()
     glBindVertexArray(cubeVao)
@@ -480,6 +483,7 @@ fun createGlObjects(): GlObjects {
     val uniformEyeMatrix = glGetUniformLocation(program, "eyeMatrix")
     val uniformTransformationMatrix = glGetUniformLocation(program, "transformationMatrix")
 
+    println("createErrorEnd: ${glGetError()}")
 
     return GlObjects(
             cubeVao, cubePositions, cubeColors, cubeIndices,
