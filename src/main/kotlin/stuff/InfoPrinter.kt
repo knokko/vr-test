@@ -46,7 +46,7 @@ fun main() {
     val windowHandle = glfwCreateWindow(1, 1, "Should be invisible", NULL, NULL)
     glfwMakeContextCurrent(windowHandle)
     GL.createCapabilities()
-    glClearColor(0.5f, 0.2f, 0.7f, 1f)
+    glClearColor(0.416f, 0.306f, 0.216f, 1f)
 
     val glObjects = createGlObjects()
 
@@ -179,7 +179,7 @@ fun drawScene(glObjects: GlObjects, viewMatrix: Matrix4f, eyeShotNumber: Int?, w
 
     println("drawErrorStart: ${glGetError()}")
 
-    glClearColor(1f, 0f, 1f, 1f)
+    glClearColor(0.416f, 0.306f, 0.216f, 1f)
     glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT)
 
     glEnable(GL_DEPTH_TEST)
@@ -560,7 +560,7 @@ fun createSimpleFramebuffer(width: Int, height: Int) : Framebuffer {
         System.err.println("Framebuffer creation failed")
 
     // Just for test rendering
-    glClearColor(1f, 0f, 1f, 1f)
+    glClearColor(0.416f, 0.306f, 0.216f, 1f)
     glClear(GL_COLOR_BUFFER_BIT)
 
     // Rebind the previously bound framebuffer because this method shouldn't introduce side effects
