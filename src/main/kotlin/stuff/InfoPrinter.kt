@@ -494,7 +494,7 @@ fun createGlObjects(): GlObjects {
     return GlObjects(
             cubeVao, cubePositions, cubeColors, cubeIndices,
             cylinderVao, cylinderPositions, cylinderColors,cylinderIndices,
-            program, vertexShader, fragmentShader, uniformEyeMatrix, uniformTransformationMatrix
+            fragmentShader, vertexShader, program, uniformEyeMatrix, uniformTransformationMatrix
     )
 }
 
