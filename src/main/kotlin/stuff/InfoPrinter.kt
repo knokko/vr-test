@@ -1,35 +1,82 @@
 package stuff
 
 import org.joml.Matrix4f
-import org.joml.Matrix4x3f
-import org.joml.Vector3f
 import org.lwjgl.glfw.GLFW.*
 import org.lwjgl.opengl.GL
-import org.lwjgl.opengl.GL11
-import org.lwjgl.opengl.GL15
-import org.lwjgl.opengl.GL20
 import org.lwjgl.opengl.GL30.*
 import org.lwjgl.openvr.*
 import org.lwjgl.openvr.VR.*
 import org.lwjgl.openvr.VRCompositor.*
+import org.lwjgl.openvr.VRInput.*
 import org.lwjgl.openvr.VRSystem.*
 import org.lwjgl.system.MemoryStack.stackPush
 import org.lwjgl.system.MemoryUtil.*
 import java.awt.Color
 import java.awt.image.BufferedImage
 import java.awt.image.BufferedImage.TYPE_INT_RGB
+import java.io.BufferedInputStream
 import java.io.File
-import java.io.PrintStream
+import java.nio.file.Files
 import java.util.*
 import javax.imageio.ImageIO
 import javax.swing.filechooser.FileSystemView
-import kotlin.math.sin
+
+class ActionBindings(val actionSet: Long, val leftAction: Long)
+
+fun initInputActions(): ActionBindings {
+    val manifestInput = BufferedInputStream(GlObjects::class.java.classLoader.getResourceAsStream("actionManifest.json"))
+
+    val manifestFile = Files.createTempFile("", "actionManifest.json")
+    println("The manifest file is at ${manifestFile.toAbsolutePath()}")
+
+    val manifestOutput = Files.newOutputStream(manifestFile.toAbsolutePath())
+    var nextByte = manifestInput.read()
+    while (nextByte != -1) {
+        manifestOutput.write(nextByte)
+        nextByte = manifestInput.read()
+    }
+    manifestOutput.flush()
+    manifestOutput.close()
+
+    val (leftAction, actionSet) = stackPush().use { stack ->
+        VRInput_SetActionManifestPath(stack.UTF8(manifestFile.toAbsolutePath().toString()))
+
+        val pActionSet = stack.callocLong(1)
+        VRInput_GetActionSetHandle(stack.UTF8("/actions/demo"), pActionSet)
+
+        val pLeftAction = stack.callocLong(1)
+        VRInput_GetActionHandle(stack.UTF8("/actions/demo/in/lefthand_test"), pLeftAction)
+
+        println("action set is ${pActionSet[0]} and action is ${pLeftAction[0]}")
+        Pair(pLeftAction[0], pActionSet[0])
+    }
+
+    return ActionBindings(actionSet, leftAction)
+}
+
+fun updateActionBindings(actionBindings: ActionBindings) {
+    stackPush().use { stack ->
+
+        val activeActionSets = VRActiveActionSet.callocStack(1, stack)
+        val activeActionSet = activeActionSets[0]
+        activeActionSet.ulActionSet(actionBindings.actionSet)
+        activeActionSet.ulRestrictedToDevice(k_ulInvalidInputValueHandle)
+        activeActionSet.nPriority(1)
+
+        VRInput_UpdateActionState(activeActionSets, VRActiveActionSet.SIZEOF)
+
+        val pLeftData = InputSkeletalActionData.callocStack(stack)
+        val dataResult = VRInput_GetSkeletalActionData(actionBindings.leftAction, pLeftData)
+
+        println("dataResult is $dataResult")
+        if (pLeftData.bActive()) {
+            println("Origin is ${pLeftData.activeOrigin()}")
+        }
+    }
+}
 
 fun main() {
 
-    val home = FileSystemView.getFileSystemView().homeDirectory
-
-    System.setOut(PrintStream(File("$home/vrOut.txt")))
     println("Runtime installed? ${VR_IsRuntimeInstalled()}")
     println("Runtime path = ${VR_RuntimePath()}")
     println("Has head-mounted display? ${VR_IsHmdPresent()}")
@@ -71,6 +118,8 @@ fun main() {
             }
             println("These were all device classes")
 
+            val actionBindings = initInputActions()
+
             val pWidth = stack.mallocInt(1)
             val pHeight = stack.mallocInt(1)
             VRSystem_GetRecommendedRenderTargetSize(pWidth, pHeight)
@@ -93,7 +142,7 @@ fun main() {
             rightTexture.eColorSpace(EColorSpace_ColorSpace_Gamma)
             rightTexture.handle(rightFramebuffer.textureHandle.toLong())
 
-            // Stop after 20 seconds
+            // Stop after 10 seconds
             val endTime = System.currentTimeMillis() + 20_000
 
             val poses = TrackedDevicePose.mallocStack(k_unMaxTrackedDeviceCount, stack)
@@ -101,6 +150,8 @@ fun main() {
             var eyeShotNumber = 0
             println("Start while loop")
             while (System.currentTimeMillis() < endTime) {
+
+                updateActionBindings(actionBindings)
 
                 VRCompositor_WaitGetPoses(poses, null)
 
@@ -176,8 +227,6 @@ fun drawScene(glObjects: GlObjects, viewMatrix: Matrix4f, eyeShotNumber: Int?, w
 
     val transformationMatrix = Matrix4f().translate(50f, 0f, 50f)
     val transformationMatrix2 = Matrix4f().translate(20f, 10f, 20f)
-
-    println("drawErrorStart: ${glGetError()}")
 
     glClearColor(0.416f, 0.306f, 0.216f, 1f)
     glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT)

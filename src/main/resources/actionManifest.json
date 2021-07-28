@@ -1,0 +1,16 @@
+{
+  "defaultBindings": [],
+  "actions": [
+    {
+      "name": "/actions/demo/in/lefthand_test",
+      "type": "skeleton",
+      "skeleton": "/skeleton/hand/left"
+    }
+  ],
+  "action_sets": [
+    {
+      "name": "/actions/demo",
+      "usage": "single"
+    }
+  ]
+}
